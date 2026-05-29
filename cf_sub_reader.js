@@ -290,7 +290,19 @@ async function start() {
             console.log(`📋 [干净优选] 提取模式: ${ISP === 'all' ? '全部(4倍截取)' : ISP}，成功获取前 ${bestIps.length} 个由专业测速排序好的存活 IP`);
 
             bestIps.forEach((ip, idx) => {
-                const remarkStr = `CF-已测速优选-${idx + 1}`;
+                let remarkStr = '';
+                if (ISP === 'all') {
+                    // 将 40 个节点均匀分配给 4 个运营商命名，使其与 random 模式保持完全一致，避免破坏 Loon 正则策略组
+                    const ispTypes = ['cf', 'ct', 'cu', 'cmcc'];
+                    const typeIndex = Math.floor(idx / NODE_COUNT);
+                    const currentType = ispTypes[Math.min(typeIndex, 3)];
+                    const ispMark = ISP_NAME_MAP[currentType];
+                    const subIdx = (idx % NODE_COUNT) + 1;
+                    remarkStr = `CF-${ispMark}-随机-${subIdx}`;
+                } else {
+                    const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
+                    remarkStr = `CF-${ispMark}-随机-${idx + 1}`;
+                }
                 const remark = encodeURIComponent(remarkStr);
 
                 let nodeLink = '';
