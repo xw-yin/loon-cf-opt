@@ -190,7 +190,7 @@ $httpClient.get({
 
             const resultNodes = nodeLinks.join('\n');
             
-            console.log(`🎉 [节点合成] 成功合成 ${nodeLinks.length} 个最新优选节点！返回响应...`);
+            console.log(`🎉 [节点合成] 成功合成 ${nodeLinks.length} 个最新优选节点！\n==== 合成节点列表 ====\n${resultNodes}\n======================`);
             returnMockResponse(resultNodes);
         } else {
             console.log("❌ [解析失败] IP 列表为空");
