@@ -1,5 +1,6 @@
 /**
- * Loon 脚本订阅：自动拉取优选 IP 并直接生成代理节点 (高维调试日志版)
+ * Loon 脚本订阅：自动拉取优选 IP 或动态随机碰撞网段并直接在本地生成代理节点
+ * 支持双模式：1. 每日优选列表拉取 2. 运营商专属 CIDR 随机碰撞网段生成
  */
 
 console.log("=== [CF 优选生成器] 脚本启动 ===");
@@ -11,7 +12,9 @@ function getArguments() {
         HOST: 'your-worker-domain.com',               // 默认测试域名
         PATH: '/video',                               // 默认测试路径
         PORT: '443',                                  // 默认测试端口
-        PROTOCOL: 'vless'                             // 默认测试协议
+        PROTOCOL: 'vless',                            // 默认测试协议
+        SOURCE_TYPE: 'random',                        // 默认使用随机网段模式
+        ISP: 'cf'                                     // 默认使用官方优选网段
     };
     
     if (typeof $argument !== 'undefined' && $argument) {
@@ -35,18 +38,34 @@ const HOST = config.HOST;
 const PATH = config.PATH;
 const PORT = Number(config.PORT || 443);
 const PROTOCOL = config.PROTOCOL.toLowerCase();
+const SOURCE_TYPE = config.SOURCE_TYPE.toLowerCase(); // 'random' 或 'list'
+const ISP = config.ISP.toLowerCase(); // 'cf', 'ct', 'cu', 'cmcc'
 
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 域名: ${HOST}`);
 console.log(`   ├─ 路径: ${PATH}`);
 console.log(`   ├─ 端口: ${PORT}`);
+console.log(`   ├─ 模式: ${SOURCE_TYPE === 'random' ? '🎯 运营商专属网段随机生成' : '📋 每日已测速优选列表'}`);
+if (SOURCE_TYPE === 'random') {
+    const ispName = { cf: '官方优选', ct: '电信优选', cu: '联通优选', cmcc: '移动优选' }[ISP];
+    console.log(`   ├─ 运营商段: ${ispName} (${ISP})`);
+}
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已进行脱敏处理)`);
 
-// 优质的公开优选 IP 源 (使用 GitHub 镜像加速通道，确保直连可达)
-const IP_SOURCE_URL = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt'; 
+// 根据获取模式决定请求 URL
+let IP_SOURCE_URL = '';
+if (SOURCE_TYPE === 'random') {
+    // 随机模式，获取指定运营商的 CIDR 网段列表
+    IP_SOURCE_URL = ISP === 'cf' 
+        ? 'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt'
+        : `https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/${ISP}.txt`;
+} else {
+    // 列表模式，拉取每日测速后的 IP
+    IP_SOURCE_URL = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
+}
 
-console.log(`📡 [网络请求] 开始通过直连 (DIRECT) 路由获取优选 IP 列表...`);
+console.log(`📡 [网络请求] 开始通过直连 (DIRECT) 路由获取 IP 数据源...`);
 console.log(`   └─ 目标 URL: ${IP_SOURCE_URL}`);
 
 $httpClient.get({
@@ -56,7 +75,7 @@ $httpClient.get({
     console.log("📡 [网络请求] 请求完成！开始检查响应结果...");
 
     if (err) {
-        console.log("❌ [网络异常] 优选 IP 获取失败，错误详情: " + JSON.stringify(err));
+        console.log("❌ [网络异常] IP 数据源获取失败，错误详情: " + JSON.stringify(err));
         $notification.post("CF 优选生成器", "获取优选 IP 失败", `网络请求错误: ${err}`);
         $done();
         return;
@@ -72,47 +91,78 @@ $httpClient.get({
     console.log(`   └─ 数据字节长度: ${data ? data.length : 0} 字符`);
 
     if (response.status === 200 && data) {
-        console.log("🔍 [内容校验] 成功拉取到原始数据！前 150 个字符为:");
-        console.log(`   > "${data.substring(0, 150).replace(/\n/g, ' ')}..."`);
-
-        // 按行解析 IP，使用正则提取合法 IP
-        console.log("🔨 [解析数据] 开始使用正则表达式提取合法 IP 地址...");
-        let lines = data.split('\n');
-        console.log(`   ├─ 原始总行数: ${lines.length} 行`);
-
         let ipList = [];
-        lines.forEach(line => {
-            line = line.trim();
-            if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+
+        if (SOURCE_TYPE === 'random') {
+            // ================= 模式 1：动态随机碰撞网段 =================
+            console.log("🔨 [网段解析] 开始解析 CIDR 列表并随机生成 IP...");
             
-            // 正则匹配 IPv4
-            let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-            if (ipv4Match) {
-                ipList.push(ipv4Match[0]);
-                return;
+            // 按逗号或换行拆分成数组
+            let cidrList = data.replace(/[	"'\r\n]+/g, ',').replace(/,+/g, ',').split(',');
+            cidrList = cidrList.map(c => c.trim()).filter(c => c && c.includes('/'));
+            console.log(`   ├─ 成功解析到网段 (CIDR) 数量: ${cidrList.length} 个`);
+
+            if (cidrList.length === 0) {
+                console.log("⚠️ [网段解析] 未提取到任何有效网段，将使用默认兜底网段 104.16.0.0/13");
+                cidrList = ['104.16.0.0/13'];
             }
-            
-            // 正则匹配 IPv6 (如 2606:4700::)
-            let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-            if (ipv6Match) {
-                ipList.push(`[${ipv6Match[0]}]`);
-                return;
+
+            // 根据网段随机碰撞生成 IP 算法
+            const generateRandomIPFromCIDR = (cidr) => {
+                const [baseIP, prefixLength] = cidr.split('/'), prefix = parseInt(prefixLength), hostBits = 32 - prefix;
+                const ipInt = baseIP.split('.').reduce((a, p, i) => a | (parseInt(p) << (24 - i * 8)), 0);
+                const randomOffset = Math.floor(Math.random() * Math.pow(2, hostBits));
+                const mask = (0xFFFFFFFF << hostBits) >>> 0, randomIP = (((ipInt & mask) >>> 0) + randomOffset) >>> 0;
+                return [(randomIP >>> 24) & 0xFF, (randomIP >>> 16) & 0xFF, (randomIP >>> 8) & 0xFF, randomIP & 0xFF].join('.');
+            };
+
+            // 随机生成 10 个 IP
+            for (let i = 0; i < 10; i++) {
+                const randomCIDR = cidrList[Math.floor(Math.random() * cidrList.length)];
+                const randomIP = generateRandomIPFromCIDR(randomCIDR);
+                ipList.push(randomIP);
             }
-        });
-        
-        console.log(`   └─ 过滤并成功提取出有效 IP 数量: ${ipList.length} 个`);
+            console.log(`   └─ 成功随机碰撞生成 IP 数量: ${ipList.length} 个`);
+
+        } else {
+            // ================= 模式 2：每日已测速优选列表 =================
+            console.log("🔨 [数据解析] 开始使用正则表达式提取已测速的合法 IP 地址...");
+            let lines = data.split('\n');
+            console.log(`   ├─ 原始总行数: ${lines.length} 行`);
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+                
+                // 正则匹配 IPv4
+                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                if (ipv4Match) {
+                    ipList.push(ipv4Match[0]);
+                    return;
+                }
+                
+                // 正则匹配 IPv6 (如 2606:4700::)
+                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                if (ipv6Match) {
+                    ipList.push(`[${ipv6Match[0]}]`);
+                    return;
+                }
+            });
+            console.log(`   └─ 过滤并成功提取出有效 IP 数量: ${ipList.length} 个`);
+        }
 
         if (ipList.length > 0) {
             // 保留前 10 个最优质的 IP
             let bestIPs = ipList.slice(0, 10);
-            console.log(`🎯 [节点合成] 选择最优质的前 ${bestIPs.length} 个 IP 进行组装: ` + JSON.stringify(bestIPs));
+            console.log(`🎯 [节点合成] 开始组装节点，数据源: ` + JSON.stringify(bestIPs));
             
             let nodeLinks = [];
+            const modeRemark = SOURCE_TYPE === 'random' ? `CF${ISP.toUpperCase()}随机` : 'CF优选';
 
             // 循环遍历优选 IP，直接生成对应的节点
             bestIPs.forEach((ip, index) => {
                 let nodeLink = '';
-                let remark = encodeURIComponent(`CF优选-${index + 1}`);
+                let remark = encodeURIComponent(`${modeRemark}-${index + 1}`);
 
                 if (PROTOCOL === 'vless') {
                     nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
@@ -121,7 +171,6 @@ $httpClient.get({
                 }
 
                 if (nodeLink) {
-                    // 脱敏打印生成的节点信息，方便调试
                     console.log(`   ├─ 成功组装节点 [${index + 1}]: ${PROTOCOL}://******@${ip}:${PORT}`);
                     nodeLinks.push(nodeLink);
                 }
@@ -148,8 +197,8 @@ $httpClient.get({
             console.log("=== [CF 优选生成器] 脚本执行成功完毕 ===");
             $done();
         } else {
-            console.log("❌ [解析数据] 过滤后的 IP 列表为空！无法生成任何节点。");
-            $notification.post("CF 优选生成器", "生成 0 个节点", "解析出的有效 IP 列表为空，请检查 IP 源格式！");
+            console.log("❌ [解析数据] 提取的 IP 列表为空！无法生成任何节点。");
+            $notification.post("CF 优选生成器", "生成 0 个节点", "解析出的有效 IP 列表为空，请检查数据源！");
             $done();
         }
     } else {
