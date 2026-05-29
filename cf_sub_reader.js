@@ -302,8 +302,7 @@ async function start() {
                 
                 // 将 CF 数据中心映射为漂亮的地区和国旗图标
                 const region = COLO_MAP[res.colo] || `CF-${res.colo}`;
-                const latencyRemark = res.success ? `${res.latency}ms` : '兜底';
-                const remarkStr = `${region}-${modeRemark}-${latencyRemark}-${index + 1}`;
+                const remarkStr = `${region}-${modeRemark}-${index + 1}`;
                 const remark = encodeURIComponent(remarkStr);
 
                 if (PROTOCOL === 'vless') {
