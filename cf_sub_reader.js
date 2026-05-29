@@ -284,9 +284,10 @@ async function start() {
                 }
             });
             
-            // 直接获取前 node_count 个最快 IP
-            const bestIps = pool.slice(0, NODE_COUNT);
-            console.log(`📋 [干净优选] 成功获取前 ${bestIps.length} 个由专业测速排序好的存活 IP`);
+            // 智能节点提取：如果选了 all 模式，截取大池子前 NODE_COUNT * 4 个最顶级的优选 IP 以输出 40 个节点！
+            const targetCount = (ISP === 'all') ? (NODE_COUNT * 4) : NODE_COUNT;
+            const bestIps = pool.slice(0, targetCount);
+            console.log(`📋 [干净优选] 提取模式: ${ISP === 'all' ? '全部(4倍截取)' : ISP}，成功获取前 ${bestIps.length} 个由专业测速排序好的存活 IP`);
 
             bestIps.forEach((ip, idx) => {
                 const remarkStr = `CF-已测速优选-${idx + 1}`;
