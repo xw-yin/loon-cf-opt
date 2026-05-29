@@ -1,5 +1,5 @@
 /**
- * Loon 节点自动生成器与本地测速中转器 (终极性能版)
+ * Loon 节点自动生成器与本地测速中转器 (三网融合高规版)
  * 
  * 作用：拦截对虚拟订阅地址 http://httpbin.org/cf_sub 的访问，
  * 100% 在本地并发拉取优选网段，实时进行 TCP/HTTPS 测速排序，
@@ -16,6 +16,14 @@ const COLO_MAP = {
     "FRA": "🇩🇪法兰克福", "CDG": "🇫🇷巴黎", "AMS": "🇳🇱阿姆斯特丹", "ARN": "🇸🇪斯德哥尔摩", "SYD": "🇦🇺悉尼",
     "MEL": "🇦🇺墨尔本", "BKK": "🇹🇭曼谷", "KUL": "🇲🇾吉隆坡", "MNL": "🇵🇭马尼拉", "JKT": "🇮🇩雅加达",
     "SGN": "🇻🇳胡志明市", "DEL": "🇮🇳新德里", "BOM": "🇮🇳孟买", "DXB": "🇦🇪迪拜"
+};
+
+// 运营商 Remarks 标识映射
+const ISP_NAME_MAP = {
+    "cf": "官方",
+    "ct": "电信",
+    "cu": "联通",
+    "cmcc": "移动"
 };
 
 // ================= 解析 Loon 插件面板传入的配置参数 =================
@@ -135,7 +143,7 @@ console.log(`   ├─ 路径: ${PATH}`);
 console.log(`   ├─ 端口: ${PORT}`);
 console.log(`   ├─ 模式: ${SOURCE_TYPE === 'random' ? '🎯 运营商网段随机碰撞' : '📋 每日已测速优选列表'}`);
 if (SOURCE_TYPE === 'random') {
-    console.log(`   ├─ 运营商段: ${ISP === 'all' ? '🔀 三网大融合(all)' : ISP}`);
+    console.log(`   ├─ 运营商段: ${ISP === 'all' ? '🔀 三网大融合(各取' + NODE_COUNT + '个最快节点)' : ISP}`);
 }
 console.log(`   ├─ 数量: ${NODE_COUNT} 个`);
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已脱敏)`);
@@ -147,7 +155,7 @@ function fetchUrl(url) {
             url: url,
             policy: "DIRECT" // 强直连获取数据源
         }, function(err, resp, data) {
-            if (!err && resp.status === 200 && data) {
+            if (!err && resp && resp.status === 200 && data) {
                 resolve(data);
             } else {
                 console.log(`⚠️ [网络获取] 直连拉取源文件失败: ${url}`);
@@ -157,39 +165,21 @@ function fetchUrl(url) {
     });
 }
 
-// 智能加载 IP 数据源逻辑
-async function fetchSourceData() {
-    if (SOURCE_TYPE === 'random') {
-        if (ISP === 'all') {
-            console.log(`📡 [网络请求] 触发 [全部混合模式]，并发获取 4 个运营商数据源...`);
-            const urls = [
-                'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt',
-                'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/ct.txt',
-                'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/cu.txt',
-                'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/cmcc.txt'
-            ];
-            const results = await Promise.all(urls.map(url => fetchUrl(url)));
-            return results.filter(Boolean).join('\n');
-        } else {
-            const url = ISP === 'cf' 
-                ? 'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt'
-                : `https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/${ISP}.txt`;
-            console.log(`📡 [网络请求] 开始拉取运营商 [${ISP}] 数据源...`);
-            return await fetchUrl(url);
-        }
-    } else {
-        const url = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
-        console.log(`📡 [网络请求] 开始拉取每日已测速优选列表...`);
-        return await fetchUrl(url);
-    }
-}
-
 // ================= 本地并发测速与 Colo 归属查询 Promise 引擎 =================
 function testIP(ip) {
     return new Promise((resolve) => {
         const startTime = Date.now();
+        
+        // 关键点：向 Cloudflare 边缘节点发送请求时，必须在 Headers 中携带 HOST 字段，
+        // 否则 Cloudflare 防火墙会因为找不到域名主机而直接拒绝/返回 403 导致测速可用 IP 为 0！
+        // Host 优先使用用户的自定义域名，其次使用 CF 官方测速域名 speed.cloudflare.com 作为通用兜底。
+        const targetHost = (HOST && HOST !== 'your-worker-domain.com') ? HOST : 'speed.cloudflare.com';
+        
         $httpClient.get({
             url: `http://${ip}/cdn-cgi/trace`,
+            headers: {
+                "Host": targetHost
+            },
             timeout: 1000, // 1 秒超时强行截断，保证高效率
             policy: "DIRECT" // 必须直连以捕获物理真实延迟
         }, function(err, resp, data) {
@@ -200,52 +190,174 @@ function testIP(ip) {
                 if (match && match[1]) {
                     colo = match[1];
                 }
-                resolve({ ip: ip, latency: latency, colo: colo, success: true });
+                resolve({ ip: ip, latency: latency, colo: colo, success: true, error: null });
             } else {
-                resolve({ ip: ip, latency: 9999, colo: "ERR", success: false });
+                let errorMsg = "超时/阻断";
+                if (err) errorMsg = typeof err === 'object' ? JSON.stringify(err) : String(err);
+                else if (resp) errorMsg = `HTTP 状态码 ${resp.status}`;
+                resolve({ ip: ip, latency: 9999, colo: "ERR", success: false, error: errorMsg });
             }
         });
     });
 }
 
+// 解析文本中的 IP/CIDR 网段，随机生成候选 IP
+function parseAndGenerateCandidates(rawText, countToGenerate) {
+    let cidrList = rawText.replace(/[	"'\r\n]+/g, ',').replace(/,+/g, ',').split(',');
+    cidrList = [...new Set(cidrList.map(c => c.trim()).filter(c => c && c.includes('/')))];
+    
+    if (cidrList.length === 0) cidrList = ['104.16.0.0/13'];
+
+    const generateRandomIPFromCIDR = (cidr) => {
+        const [baseIP, prefixLength] = cidr.split('/'), prefix = parseInt(prefixLength), hostBits = 32 - prefix;
+        const ipInt = baseIP.split('.').reduce((a, p, i) => a | (parseInt(p) << (24 - i * 8)), 0);
+        const randomOffset = Math.floor(Math.random() * Math.pow(2, hostBits));
+        const mask = (0xFFFFFFFF << hostBits) >>> 0, randomIP = (((ipInt & mask) >>> 0) + randomOffset) >>> 0;
+        return [(randomIP >>> 24) & 0xFF, (randomIP >>> 16) & 0xFF, (randomIP >>> 8) & 0xFF, randomIP & 0xFF].join('.');
+    };
+
+    let candidates = [];
+    for (let i = 0; i < countToGenerate; i++) {
+        const randomCIDR = cidrList[Math.floor(Math.random() * cidrList.length)];
+        candidates.push(generateRandomIPFromCIDR(randomCIDR));
+    }
+    return candidates;
+}
+
+// 核心处理函数：对给定的候选 IP 集合进行并发测速、排序并筛选出最快节点
+async function processAndBenchmark(candidates, ispType, maxToSelect) {
+    console.log(`⚡ [测速引擎] [${ISP_NAME_MAP[ispType] || ispType}] 准备对 ${candidates.length} 个候选 IP 发起本地 HTTPS 并发测速...`);
+    const testResults = await Promise.all(candidates.map(ip => testIP(ip)));
+    
+    // 详细打印所有候选 IP 测速明细，方便直观排查和观测！
+    console.log(`📊 === [${ISP_NAME_MAP[ispType] || ispType}] 测速明细日志 ===`);
+    testResults.forEach(r => {
+        const latencyStr = r.success ? `${r.latency}ms` : "超时/失败";
+        const resultIndicator = r.success ? `✅ 成功` : `❌ 失败 (${r.error})`;
+        console.log(`   ├─ IP: ${r.ip.padEnd(15)} | 延迟: ${latencyStr.padEnd(8)} | 机房: ${r.colo.padEnd(4)} | 结果: ${resultIndicator}`);
+    });
+    console.log(`===========================================`);
+
+    // 筛选成功的测速结果，并按延迟从低到高升序排序
+    const successfulResults = testResults.filter(r => r.success).sort((a, b) => a.latency - b.latency);
+    console.log(`📈 [测速排序] [${ISP_NAME_MAP[ispType] || ispType}] 测速完成！其中可用 IP 数为: ${successfulResults.length} 个`);
+
+    let finalResults = [];
+    if (successfulResults.length > 0) {
+        finalResults = successfulResults.slice(0, maxToSelect);
+    } else {
+        // 自愈兜底保护逻辑：如果全部超时，直接采用最初生成的候选 IP 列表，将延迟标为 999 兜底
+        console.log(`⚠️ [自愈兜底] [${ISP_NAME_MAP[ispType] || ispType}] 所有候选 IP 本地测速均超时/失效！已启动自愈兜底机制...`);
+        candidates.slice(0, maxToSelect).forEach((ip) => {
+            finalResults.push({ ip: ip, latency: 999, colo: "兜底", success: false });
+        });
+    }
+    
+    return finalResults;
+}
+
 // ================= 主执行异步控制器 =================
 async function start() {
     try {
-        const data = await fetchSourceData();
-        if (!data) {
-            console.log("❌ [流程阻断] 拉取 IP 数据源为空，请检查网络或 GitHub Mirror！");
-            returnMockResponse("");
-            return;
-        }
-
-        let ipList = [];
+        let nodeLinks = [];
 
         if (SOURCE_TYPE === 'random') {
-            // ================= 模式 1：动态随机碰撞网段 =================
-            let cidrList = data.replace(/[	"'\r\n]+/g, ',').replace(/,+/g, ',').split(',');
-            cidrList = [...new Set(cidrList.map(c => c.trim()).filter(c => c && c.includes('/')))];
-            
-            if (cidrList.length === 0) cidrList = ['104.16.0.0/13'];
+            // ================= 🎯 随机碰撞模式 =================
+            if (ISP === 'all') {
+                // 🚀 【超级混合三网大融合模式】四种类型各并发获取、各抽取 node_count 个最快 IP！
+                const ispTypes = ['cf', 'ct', 'cu', 'cmcc'];
+                const urls = [
+                    'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt',
+                    'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/ct.txt',
+                    'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/cu.txt',
+                    'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/cmcc.txt'
+                ];
+                
+                console.log(`📡 [网络请求] 三网大融合模式启动，并发拉取 4 大运营商网段列表...`);
+                const rawTexts = await Promise.all(urls.map(url => fetchUrl(url)));
+                
+                // 并发执行四路测速流程
+                const benchmarkPromises = ispTypes.map(async (type, i) => {
+                    const text = rawTexts[i];
+                    if (!text) {
+                        console.log(`⚠️ [大融合警告] 抓取 [${ISP_NAME_MAP[type]}] 网段列表为空，跳过此运营商测速...`);
+                        return [];
+                    }
+                    
+                    // 各自生成目标数量 2 倍的备选 IP 进行高效测速（比如设置 10 个就生成 20 个测速）
+                    const candidatesToGenerate = Math.min(NODE_COUNT * 2, 25);
+                    const candidates = parseAndGenerateCandidates(text, candidatesToGenerate);
+                    
+                    const bestIps = await processAndBenchmark(candidates, type, NODE_COUNT);
+                    return bestIps.map(res => ({ ...res, ispType: type }));
+                });
+                
+                const allBestIpsArray = await Promise.all(benchmarkPromises);
+                // 扁平合并四个运营商的最优 IP
+                const mergedBestIps = [].concat(...allBestIpsArray);
+                
+                // 拼接节点
+                mergedBestIps.forEach((res, index) => {
+                    let nodeLink = '';
+                    const ispMark = ISP_NAME_MAP[res.ispType] || res.ispType.toUpperCase();
+                    const region = COLO_MAP[res.colo] || `CF-${res.colo}`;
+                    
+                    // 纯净的地区+运营商名+序号，完美符合正则表达式匹配，去除了延迟数字
+                    const remarkStr = `${region}-CF-${ispMark}-${index + 1}`;
+                    const remark = encodeURIComponent(remarkStr);
 
-            const generateRandomIPFromCIDR = (cidr) => {
-                const [baseIP, prefixLength] = cidr.split('/'), prefix = parseInt(prefixLength), hostBits = 32 - prefix;
-                const ipInt = baseIP.split('.').reduce((a, p, i) => a | (parseInt(p) << (24 - i * 8)), 0);
-                const randomOffset = Math.floor(Math.random() * Math.pow(2, hostBits));
-                const mask = (0xFFFFFFFF << hostBits) >>> 0, randomIP = (((ipInt & mask) >>> 0) + randomOffset) >>> 0;
-                return [(randomIP >>> 24) & 0xFF, (randomIP >>> 16) & 0xFF, (randomIP >>> 8) & 0xFF, randomIP & 0xFF].join('.');
-            };
+                    if (PROTOCOL === 'vless') {
+                        nodeLink = `vless://${UUID}@${res.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                    } else if (PROTOCOL === 'trojan') {
+                        nodeLink = `trojan://${UUID}@${res.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    }
+                    if (nodeLink) nodeLinks.push(nodeLink);
+                });
 
-            // 依据节点生成数量，随机抽取生成 3 倍于目标数量的候选 IP 进行物理测速（最大 45 个）
-            const candidatesToGenerate = Math.min(NODE_COUNT * 3, 45);
-            for (let i = 0; i < candidatesToGenerate; i++) {
-                const randomCIDR = cidrList[Math.floor(Math.random() * cidrList.length)];
-                ipList.push(generateRandomIPFromCIDR(randomCIDR));
+            } else {
+                // 🎯 【单运营商模式】
+                const url = ISP === 'cf' 
+                    ? 'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt'
+                    : `https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/${ISP}.txt`;
+                
+                const rawText = await fetchUrl(url);
+                if (!rawText) {
+                    console.log(`❌ [网络请求] 拉取运营商 [${ISP}] 数据源为空，流程阻断！`);
+                    returnMockResponse("");
+                    return;
+                }
+                
+                const candidatesToGenerate = Math.min(NODE_COUNT * 3, 40);
+                const candidates = parseAndGenerateCandidates(rawText, candidatesToGenerate);
+                
+                const bestIps = await processAndBenchmark(candidates, ISP, NODE_COUNT);
+                
+                bestIps.forEach((res, index) => {
+                    let nodeLink = '';
+                    const region = COLO_MAP[res.colo] || `CF-${res.colo}`;
+                    const remarkStr = `${region}-CF-${ISP.toUpperCase()}-${index + 1}`;
+                    const remark = encodeURIComponent(remarkStr);
+
+                    if (PROTOCOL === 'vless') {
+                        nodeLink = `vless://${UUID}@${res.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                    } else if (PROTOCOL === 'trojan') {
+                        nodeLink = `trojan://${UUID}@${res.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    }
+                    if (nodeLink) nodeLinks.push(nodeLink);
+                });
             }
-            console.log(`✅ [网段生成] 成功抽取并生成 ${ipList.length} 个随机候选 IP 准备测速`);
 
         } else {
-            // ================= 模式 2：每日已测速优选列表 =================
-            let lines = data.split('\n');
+            // ================= 📋 每日已测速优选列表模式 =================
+            const url = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
+            const rawText = await fetchUrl(url);
+            if (!rawText) {
+                console.log("❌ [网络请求] 拉取已测速优选列表为空，流程阻断！");
+                returnMockResponse("");
+                return;
+            }
+
+            let lines = rawText.split('\n');
             let pool = [];
             lines.forEach(line => {
                 line = line.trim();
@@ -264,45 +376,15 @@ async function start() {
                 }
             });
             
-            // 从公开列表里抽取前 3 倍节点数的候选 IP
-            const candidatesToSelect = Math.min(NODE_COUNT * 3, 45);
-            ipList = pool.slice(0, candidatesToSelect);
-            console.log(`✅ [列表提取] 从干净 IP 库中成功捕获前 ${ipList.length} 个候选 IP 准备测速`);
-        }
-
-        if (ipList.length > 0) {
-            console.log(`⚡ [测速引擎] 开始对 ${ipList.length} 个优选 IP 发起本地 HTTPS 并发测速...`);
-            const testResults = await Promise.all(ipList.map(ip => testIP(ip)));
+            const candidatesToSelect = Math.min(NODE_COUNT * 3, 40);
+            const candidates = pool.slice(0, candidatesToSelect);
             
-            // 筛选成功的测速结果，并按延迟从低到高升序排序
-            const successfulResults = testResults.filter(r => r.success).sort((a, b) => a.latency - b.latency);
-            console.log(`📈 [测速排序] 测速完成！其中可用 IP 数为: ${successfulResults.length} 个`);
-
-            let finalResults = [];
-            let fallbackUsed = false;
+            const bestIps = await processAndBenchmark(candidates, "list", NODE_COUNT);
             
-            if (successfulResults.length > 0) {
-                finalResults = successfulResults.slice(0, NODE_COUNT);
-            } else {
-                // 自愈兜底保护逻辑：如果全部超时，直接采用最初生成的候选 IP 列表，将延迟标为 999 兜底
-                console.log("⚠️ [测速警告] 所有候选 IP 本地测速均超时/失效！将启用自愈兜底机制...");
-                fallbackUsed = true;
-                ipList.slice(0, NODE_COUNT).forEach((ip, i) => {
-                    finalResults.push({ ip: ip, latency: 999, colo: "兜底", success: false });
-                });
-            }
-
-            let nodeLinks = [];
-            const modeRemark = SOURCE_TYPE === 'random' 
-                ? `CF-${ISP.toUpperCase()}` 
-                : 'CF优选';
-
-            finalResults.forEach((res, index) => {
+            bestIps.forEach((res, index) => {
                 let nodeLink = '';
-                
-                // 将 CF 数据中心映射为漂亮的地区和国旗图标
                 const region = COLO_MAP[res.colo] || `CF-${res.colo}`;
-                const remarkStr = `${region}-${modeRemark}-${index + 1}`;
+                const remarkStr = `${region}-CF优选-${index + 1}`;
                 const remark = encodeURIComponent(remarkStr);
 
                 if (PROTOCOL === 'vless') {
@@ -310,15 +392,16 @@ async function start() {
                 } else if (PROTOCOL === 'trojan') {
                     nodeLink = `trojan://${UUID}@${res.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
                 }
-
                 if (nodeLink) nodeLinks.push(nodeLink);
             });
+        }
 
+        if (nodeLinks.length > 0) {
             const resultNodes = nodeLinks.join('\n');
-            console.log(`🎉 [节点合成] 成功合成 ${nodeLinks.length} 个本地测速最优节点！\n==== 合成节点列表 ====\n${resultNodes}\n======================`);
+            console.log(`🎉 [节点合成] 成功合成 ${nodeLinks.length} 个最强优选节点！\n==== 合成节点列表 ====\n${resultNodes}\n======================`);
             returnMockResponse(resultNodes);
         } else {
-            console.log("❌ [生成失败] 未生成任何有效的候选 IP，请检查数据源内容！");
+            console.log("❌ [生成失败] 未生成任何有效的节点，请检查网络或数据源！");
             returnMockResponse("");
         }
 
