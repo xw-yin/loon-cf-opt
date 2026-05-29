@@ -75,19 +75,32 @@ $httpClient.get({
         console.log("🔍 [内容校验] 成功拉取到原始数据！前 150 个字符为:");
         console.log(`   > "${data.substring(0, 150).replace(/\n/g, ' ')}..."`);
 
-        // 按行解析 IP，过滤空行和注释
-        console.log("🔨 [解析数据] 开始拆分行列表并过滤无效数据...");
+        // 按行解析 IP，使用正则提取合法 IP
+        console.log("🔨 [解析数据] 开始使用正则表达式提取合法 IP 地址...");
         let lines = data.split('\n');
         console.log(`   ├─ 原始总行数: ${lines.length} 行`);
 
-        let ipList = lines
-            .map(line => line.trim())
-            .filter(line => {
-                // 必须不为空，不以 # 开头，且包含合法 IP 字符
-                return line && !line.startsWith('#') && /^[0-9a-fA-F.:]+$/.test(line.split(':')[0]);
-            });
+        let ipList = [];
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+            
+            // 正则匹配 IPv4
+            let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+            if (ipv4Match) {
+                ipList.push(ipv4Match[0]);
+                return;
+            }
+            
+            // 正则匹配 IPv6 (如 2606:4700::)
+            let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+            if (ipv6Match) {
+                ipList.push(`[${ipv6Match[0]}]`);
+                return;
+            }
+        });
         
-        console.log(`   └─ 过滤后有效 IP 数量: ${ipList.length} 个`);
+        console.log(`   └─ 过滤并成功提取出有效 IP 数量: ${ipList.length} 个`);
 
         if (ipList.length > 0) {
             // 保留前 10 个最优质的 IP

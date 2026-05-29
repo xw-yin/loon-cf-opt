@@ -18,10 +18,27 @@ $httpClient.get({
     }
 
     if (response.status === 200 && data) {
-        // 按行解析 IP，过滤掉空行和注释
-        let ipList = data.split('\n')
-            .map(line => line.trim())
-            .filter(line => line && !line.startsWith('#'));
+        // 按行解析 IP，并提取出合法 IP
+        let lines = data.split('\n');
+        let ipList = [];
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+            
+            // 正则匹配 IPv4
+            let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+            if (ipv4Match) {
+                ipList.push(ipv4Match[0]);
+                return;
+            }
+            
+            // 正则匹配 IPv6 (如 2606:4700::)
+            let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+            if (ipv6Match) {
+                ipList.push(`[${ipv6Match[0]}]`);
+                return;
+            }
+        });
 
         if (ipList.length > 0) {
             // 仅保留前 10 个最优质的 IP
