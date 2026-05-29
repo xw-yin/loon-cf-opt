@@ -118,6 +118,9 @@ const PATH = String(config.PATH || '/').trim();
 const PORT = Number(String(config.PORT || '').trim() || 443);
 const NODE_COUNT = Number(String(config.NODE_COUNT || '').trim() || 10);
 
+const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096];
+const isTls = TLS_PORTS.includes(PORT);
+
 let PROTOCOL = String(config.PROTOCOL || '').trim().toLowerCase();
 if (PROTOCOL !== 'vless' && PROTOCOL !== 'trojan') {
     console.log(`⚠️ [参数修正] 解析到的协议为 "${PROTOCOL}"，非 VLESS/Trojan，已自动纠正并兜底为 "vless"！`);
@@ -215,9 +218,17 @@ async function start() {
                         
                         let nodeLink = '';
                         if (PROTOCOL === 'vless') {
-                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                            if (isTls) {
+                                nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                            } else {
+                                nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
+                            }
                         } else if (PROTOCOL === 'trojan') {
-                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                            if (isTls) {
+                                nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                            } else {
+                                nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                            }
                         }
                         if (nodeLink) nodeLinks.push(nodeLink);
                     });
@@ -244,9 +255,17 @@ async function start() {
 
                     let nodeLink = '';
                     if (PROTOCOL === 'vless') {
-                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                        if (isTls) {
+                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                        } else {
+                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
+                        }
                     } else if (PROTOCOL === 'trojan') {
-                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                        if (isTls) {
+                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                        } else {
+                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                        }
                     }
                     if (nodeLink) nodeLinks.push(nodeLink);
                 });
@@ -254,10 +273,8 @@ async function start() {
 
         } else {
             // ================= 📋 每日已测速优选列表模式 =================
-            // 说明：由于 vfarid/cf-clean-ips/list.txt 中的 IP 是每天经过电脑实测，
-            // 并按照延迟从低到高已经排好序的存活优选 IP，所以我们直接截取前 node_count 个即可！
-            // 这 100% 绕过了本地网络请求超时的硬伤，且拿到了最顶级的优选 IP！
-            const url = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
+            // 使用专为中国大陆三网运营商优化的每日测速优选 IP 接口，100% 解决跨国连通性与测速超时痛点！
+            const url = 'https://addressesapi.090227.xyz/CloudFlareYes';
             const rawText = await fetchUrl(url);
             if (!rawText) {
                 console.log("❌ [网络请求] 拉取已测速优选列表为空，流程阻断！");
@@ -269,47 +286,81 @@ async function start() {
             let pool = [];
             lines.forEach(line => {
                 line = line.trim();
-                if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+                if (!line || line.startsWith('#')) return;
                 
-                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                // 格式为 IP#ISP-Type，例如 198.41.222.57#CT-Default
+                let parts = line.split('#');
+                let ip = parts[0].trim();
+                let tag = parts[1] ? parts[1].trim().toUpperCase() : '';
+                
+                let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
                 if (ipv4Match) {
-                    pool.push(ipv4Match[0]);
-                    return;
-                }
-                
-                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                if (ipv6Match) {
-                    pool.push(`[${ipv6Match[0]}]`);
-                    return;
+                    pool.push({ ip: ipv4Match[0], tag: tag });
                 }
             });
             
-            // 智能节点提取：如果选了 all 模式，截取大池子前 NODE_COUNT * 4 个最顶级的优选 IP 以输出 40 个节点！
-            const targetCount = (ISP === 'all') ? (NODE_COUNT * 4) : NODE_COUNT;
-            const bestIps = pool.slice(0, targetCount);
-            console.log(`📋 [干净优选] 提取模式: ${ISP === 'all' ? '全部(4倍截取)' : ISP}，成功获取前 ${bestIps.length} 个由专业测速排序好的存活 IP`);
-
-            bestIps.forEach((ip, idx) => {
-                let remarkStr = '';
-                if (ISP === 'all') {
-                    // 将 40 个节点均匀分配给 4 个运营商命名，使其与 random 模式保持完全一致，避免破坏 Loon 正则策略组
-                    const ispTypes = ['cf', 'ct', 'cu', 'cmcc'];
-                    const typeIndex = Math.floor(idx / NODE_COUNT);
-                    const currentType = ispTypes[Math.min(typeIndex, 3)];
-                    const ispMark = ISP_NAME_MAP[currentType];
-                    const subIdx = (idx % NODE_COUNT) + 1;
-                    remarkStr = `CF-${ispMark}-随机-${subIdx}`;
-                } else {
-                    const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
-                    remarkStr = `CF-${ispMark}-随机-${idx + 1}`;
+            let bestIps = [];
+            if (ISP === 'all') {
+                const ctIps = pool.filter(item => item.tag.startsWith('CT')).map(item => item.ip);
+                const cuIps = pool.filter(item => item.tag.startsWith('CU')).map(item => item.ip);
+                const cmccIps = pool.filter(item => item.tag.startsWith('CM')).map(item => item.ip);
+                const cfIps = pool.filter(item => !item.tag.startsWith('CT') && !item.tag.startsWith('CU') && !item.tag.startsWith('CM')).map(item => item.ip);
+                
+                const getItems = (arr, count) => {
+                    if (arr.length === 0) return [];
+                    let res = [];
+                    for (let i = 0; i < count; i++) {
+                        res.push(arr[i % arr.length]);
+                    }
+                    return res;
+                };
+                
+                const ctPart = getItems(ctIps, NODE_COUNT).map(ip => ({ ip, type: 'ct' }));
+                const cuPart = getItems(cuIps, NODE_COUNT).map(ip => ({ ip, type: 'cu' }));
+                const cmccPart = getItems(cmccIps, NODE_COUNT).map(ip => ({ ip, type: 'cmcc' }));
+                const cfPart = getItems(cfIps.length > 0 ? cfIps : pool.map(item => item.ip), NODE_COUNT).map(ip => ({ ip, type: 'cf' }));
+                
+                bestIps = [...cfPart, ...ctPart, ...cuPart, ...cmccPart];
+                console.log(`📋 [干净优选] 提取模式: 三网大融合，共组装了 ${bestIps.length} 个中国大陆优选节点`);
+            } else {
+                let filtered = [];
+                if (ISP === 'ct') filtered = pool.filter(item => item.tag.startsWith('CT'));
+                else if (ISP === 'cu') filtered = pool.filter(item => item.tag.startsWith('CU'));
+                else if (ISP === 'cmcc') filtered = pool.filter(item => item.tag.startsWith('CM'));
+                else filtered = pool.filter(item => !item.tag.startsWith('CT') && !item.tag.startsWith('CU') && !item.tag.startsWith('CM'));
+                
+                if (filtered.length === 0) filtered = pool;
+                
+                const ips = filtered.map(item => item.ip);
+                for (let i = 0; i < NODE_COUNT; i++) {
+                    bestIps.push({ ip: ips[i % ips.length], type: ISP });
                 }
+                const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
+                console.log(`📋 [干净优选] 提取模式: ${ispMark} 优选列表，共提取前 ${bestIps.length} 个测速排序存活 IP`);
+            }
+
+            bestIps.forEach((item, idx) => {
+                const currentType = item.type;
+                const ispMark = ISP_NAME_MAP[currentType] || currentType.toUpperCase();
+                const subIdx = (ISP === 'all') ? ((idx % NODE_COUNT) + 1) : (idx + 1);
+                
+                // 列表模式下命名为 “列表” 而非 “随机”，完美体现节点获取模式
+                const remarkStr = `CF-${ispMark}-列表-${subIdx}`;
                 const remark = encodeURIComponent(remarkStr);
 
                 let nodeLink = '';
                 if (PROTOCOL === 'vless') {
-                    nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                    if (isTls) {
+                        nodeLink = `vless://${UUID}@${item.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                    } else {
+                        nodeLink = `vless://${UUID}@${item.ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
+                    }
                 } else if (PROTOCOL === 'trojan') {
-                    nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    if (isTls) {
+                        nodeLink = `trojan://${UUID}@${item.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    } else {
+                        nodeLink = `trojan://${UUID}@${item.ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    }
                 }
                 if (nodeLink) nodeLinks.push(nodeLink);
             });

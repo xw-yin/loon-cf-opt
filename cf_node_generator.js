@@ -41,6 +41,9 @@ const PROTOCOL = config.PROTOCOL.toLowerCase();
 const SOURCE_TYPE = config.SOURCE_TYPE.toLowerCase(); // 'random' 或 'list'
 const ISP = config.ISP.toLowerCase(); // 'cf', 'ct', 'cu', 'cmcc'
 
+const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096];
+const isTls = TLS_PORTS.includes(PORT);
+
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 域名: ${HOST}`);
@@ -62,7 +65,7 @@ if (SOURCE_TYPE === 'random') {
         : `https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/${ISP}.txt`;
 } else {
     // 列表模式，拉取每日测速后的 IP
-    IP_SOURCE_URL = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
+    IP_SOURCE_URL = 'https://addressesapi.090227.xyz/CloudFlareYes';
 }
 
 console.log(`📡 [网络请求] 开始通过直连 (DIRECT) 路由获取 IP 数据源...`);
@@ -126,29 +129,35 @@ $httpClient.get({
 
         } else {
             // ================= 模式 2：每日已测速优选列表 =================
-            console.log("🔨 [数据解析] 开始使用正则表达式提取已测速的合法 IP 地址...");
+            console.log("🔨 [数据解析] 开始使用中国大陆优化版优选 API 提取已测速的合法 IP...");
             let lines = data.split('\n');
-            console.log(`   ├─ 原始总行数: ${lines.length} 行`);
-
+            let pool = [];
             lines.forEach(line => {
                 line = line.trim();
-                if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+                if (!line || line.startsWith('#')) return;
                 
-                // 正则匹配 IPv4
-                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                let parts = line.split('#');
+                let ip = parts[0].trim();
+                let tag = parts[1] ? parts[1].trim().toUpperCase() : '';
+                
+                let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
                 if (ipv4Match) {
-                    ipList.push(ipv4Match[0]);
-                    return;
-                }
-                
-                // 正则匹配 IPv6 (如 2606:4700::)
-                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                if (ipv6Match) {
-                    ipList.push(`[${ipv6Match[0]}]`);
-                    return;
+                    pool.push({ ip: ipv4Match[0], tag: tag });
                 }
             });
-            console.log(`   └─ 过滤并成功提取出有效 IP 数量: ${ipList.length} 个`);
+            
+            let filtered = [];
+            if (ISP === 'ct') filtered = pool.filter(item => item.tag.startsWith('CT'));
+            else if (ISP === 'cu') filtered = pool.filter(item => item.tag.startsWith('CU'));
+            else if (ISP === 'cmcc') filtered = pool.filter(item => item.tag.startsWith('CM'));
+            else filtered = pool.filter(item => !item.tag.startsWith('CT') && !item.tag.startsWith('CU') && !item.tag.startsWith('CM'));
+            
+            if (filtered.length === 0) filtered = pool;
+            
+            filtered.forEach(item => {
+                ipList.push(item.ip);
+            });
+            console.log(`   └─ 过滤并成功提取出 [${ISP.toUpperCase()}] 优选 IP 数量: ${ipList.length} 个`);
         }
 
         if (ipList.length > 0) {
@@ -164,16 +173,24 @@ $httpClient.get({
                 if (SOURCE_TYPE === 'random') {
                     remarkStr = `CF${ISP.toUpperCase()}随机-${index + 1}`;
                 } else {
-                    // 列表模式：保持与随机模式相同的命名结构
-                    remarkStr = `CF${ISP.toUpperCase()}随机-${index + 1}`;
+                    // 列表模式：保持相同的命名结构，但名字叫“列表”而非“随机”
+                    remarkStr = `CF${ISP.toUpperCase()}列表-${index + 1}`;
                 }
                 let remark = encodeURIComponent(remarkStr);
 
                 let nodeLink = '';
                 if (PROTOCOL === 'vless') {
-                    nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    if (isTls) {
+                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    } else {
+                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    }
                 } else if (PROTOCOL === 'trojan') {
-                    nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    if (isTls) {
+                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    } else {
+                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    }
                 }
 
                 if (nodeLink) {
