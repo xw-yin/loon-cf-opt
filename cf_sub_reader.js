@@ -148,10 +148,9 @@ $httpClient.get({
             });
 
             const resultNodes = nodeLinks.join('\n');
-            const base64Nodes = btoa(resultNodes);
             
             console.log(`🎉 [节点合成] 成功合成 ${nodeLinks.length} 个最新优选节点！返回响应...`);
-            returnMockResponse(base64Nodes);
+            returnMockResponse(resultNodes);
         } else {
             console.log("❌ [解析失败] IP 列表为空");
             returnMockResponse("");
@@ -163,8 +162,8 @@ $httpClient.get({
 });
 
 // 返回 Mock 响应给 Loon
-function returnMockResponse(base64Nodes) {
-    if (base64Nodes) {
+function returnMockResponse(rawNodes) {
+    if (rawNodes) {
         $done({
             response: {
                 status: 200,
@@ -172,7 +171,7 @@ function returnMockResponse(base64Nodes) {
                     "Content-Type": "text/plain; charset=utf-8",
                     "Subscription-Userinfo": "upload=0; download=0; total=1099511627776; expire=4102329600"
                 },
-                body: base64Nodes
+                body: rawNodes
             }
         });
     } else {
