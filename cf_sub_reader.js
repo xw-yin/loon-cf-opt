@@ -173,7 +173,7 @@ $httpClient.get({
         if (ipList.length > 0) {
             let bestIPs = ipList.slice(0, 10);
             let nodeLinks = [];
-            const modeRemark = SOURCE_TYPE === 'random' ? `CF${ISP.toUpperCase()}随机` : 'CF优选';
+            const modeRemark = SOURCE_TYPE === 'random' ? `CF-${ISP.toUpperCase()}-随机` : 'CF优选';
 
             bestIPs.forEach((ip, index) => {
                 let nodeLink = '';
