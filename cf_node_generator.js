@@ -1,10 +1,8 @@
 /**
- * Loon 脚本订阅：自动拉取优选 IP 并直接生成代理节点
- * 
- * 使用方法：
- * 在 Loon 的 [Proxy] 节点配置中添加：
- * CF优选订阅 = script, script-path=cf_node_generator.js, interval=43200
+ * Loon 脚本订阅：自动拉取优选 IP 并直接生成代理节点 (高维调试日志版)
  */
+
+console.log("=== [CF 优选生成器] 脚本启动 ===");
 
 // ================= 解析 Loon 插件面板传入的配置参数 =================
 function getArguments() {
@@ -17,6 +15,7 @@ function getArguments() {
     };
     
     if (typeof $argument !== 'undefined' && $argument) {
+        console.log("📝 [配置解析] 收到 Loon 面板传入的原始参数: " + $argument);
         let pairs = $argument.split('&');
         for (let pair of pairs) {
             let [key, val] = pair.split('=');
@@ -24,6 +23,8 @@ function getArguments() {
                 args[key] = decodeURIComponent(val);
             }
         }
+    } else {
+        console.log("⚠️ [配置解析] 未检测到 Loon 面板传入的参数，将使用默认测试配置运行！");
     }
     return args;
 }
@@ -34,31 +35,65 @@ const HOST = config.HOST;
 const PATH = config.PATH;
 const PORT = Number(config.PORT || 443);
 const PROTOCOL = config.PROTOCOL.toLowerCase();
-// =======================================================================
+
+console.log(`🔍 [配置解析] 最终参数结果:`);
+console.log(`   ├─ 协议: ${PROTOCOL}`);
+console.log(`   ├─ 域名: ${HOST}`);
+console.log(`   ├─ 路径: ${PATH}`);
+console.log(`   ├─ 端口: ${PORT}`);
+console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已进行脱敏处理)`);
 
 // 优质的公开优选 IP 源 (使用 GitHub 镜像加速通道，确保直连可达)
 const IP_SOURCE_URL = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt'; 
 
+console.log(`📡 [网络请求] 开始通过直连 (DIRECT) 路由获取优选 IP 列表...`);
+console.log(`   └─ 目标 URL: ${IP_SOURCE_URL}`);
+
 $httpClient.get({
     url: IP_SOURCE_URL,
-    policy: "DIRECT" // 强制 Loon 走直连 (DIRECT) 路由，确保获取最契合你本地真实网络的 IP
+    policy: "DIRECT" // 强制走直连
 }, function(err, response, data) {
+    console.log("📡 [网络请求] 请求完成！开始检查响应结果...");
+
     if (err) {
-        console.log("❌ 优选 IP 获取失败: " + err);
-        $notification.post("CF 优选生成器", "获取优选 IP 失败", err);
-        $done(""); // 失败时返回空，不破坏原有节点
+        console.log("❌ [网络异常] 优选 IP 获取失败，错误详情: " + JSON.stringify(err));
+        $notification.post("CF 优选生成器", "获取优选 IP 失败", `网络请求错误: ${err}`);
+        $done();
         return;
     }
 
+    if (!response) {
+        console.log("❌ [响应异常] 服务器未返回任何 Response 对象！");
+        $done();
+        return;
+    }
+
+    console.log(`   ├─ HTTP 状态码: ${response.status}`);
+    console.log(`   └─ 数据字节长度: ${data ? data.length : 0} 字符`);
+
     if (response.status === 200 && data) {
+        console.log("🔍 [内容校验] 成功拉取到原始数据！前 150 个字符为:");
+        console.log(`   > "${data.substring(0, 150).replace(/\n/g, ' ')}..."`);
+
         // 按行解析 IP，过滤空行和注释
-        let ipList = data.split('\n')
+        console.log("🔨 [解析数据] 开始拆分行列表并过滤无效数据...");
+        let lines = data.split('\n');
+        console.log(`   ├─ 原始总行数: ${lines.length} 行`);
+
+        let ipList = lines
             .map(line => line.trim())
-            .filter(line => line && !line.startsWith('#'));
+            .filter(line => {
+                // 必须不为空，不以 # 开头，且包含合法 IP 字符
+                return line && !line.startsWith('#') && /^[0-9a-fA-F.:]+$/.test(line.split(':')[0]);
+            });
+        
+        console.log(`   └─ 过滤后有效 IP 数量: ${ipList.length} 个`);
 
         if (ipList.length > 0) {
             // 保留前 10 个最优质的 IP
             let bestIPs = ipList.slice(0, 10);
+            console.log(`🎯 [节点合成] 选择最优质的前 ${bestIPs.length} 个 IP 进行组装: ` + JSON.stringify(bestIPs));
+            
             let nodeLinks = [];
 
             // 循环遍历优选 IP，直接生成对应的节点
@@ -67,14 +102,14 @@ $httpClient.get({
                 let remark = encodeURIComponent(`CF优选-${index + 1}`);
 
                 if (PROTOCOL === 'vless') {
-                    // 生成标准 VLESS 节点链接
                     nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
                 } else if (PROTOCOL === 'trojan') {
-                    // 生成标准 Trojan 节点链接
                     nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
                 }
 
                 if (nodeLink) {
+                    // 脱敏打印生成的节点信息，方便调试
+                    console.log(`   ├─ 成功组装节点 [${index + 1}]: ${PROTOCOL}://******@${ip}:${PORT}`);
                     nodeLinks.push(nodeLink);
                 }
             });
@@ -85,19 +120,28 @@ $httpClient.get({
             // 进行 Base64 编码
             const base64Nodes = btoa(resultNodes);
             
+            console.log("💾 [缓存写入] 尝试将 Base64 数据写入 Loon 本地持久化缓存 `CF_BEST_NODES`...");
             // 保存至本地全局持久化存储中
-            $persistentStore.write(base64Nodes, "CF_BEST_NODES");
+            const saveSuccess = $persistentStore.write(base64Nodes, "CF_BEST_NODES");
             
-            console.log(`✅ 成功生成 ${nodeLinks.length} 个优选节点并写入缓存！`);
-            $notification.post("CF 优选生成器", "节点生成成功", `已成功生成 ${nodeLinks.length} 个最优质的优选节点，Loader 节点已同步更新！`);
+            if (saveSuccess) {
+                console.log("✅ [缓存写入] 写入本地持久化缓存成功！");
+                $notification.post("CF 优选生成器", "节点生成成功", `已成功生成 ${nodeLinks.length} 个最优质的优选节点，Loader 节点已同步更新！`);
+            } else {
+                console.log("❌ [缓存写入] 严重错误：写入本地持久化缓存失败！请检查 Loon 存储权限。");
+                $notification.post("CF 优选生成器", "缓存写入失败", "写入本地存储失败，请重试！");
+            }
             
-            $done(); // 定时任务脚本执行完毕
+            console.log("=== [CF 优选生成器] 脚本执行成功完毕 ===");
+            $done();
         } else {
-            console.log("❌ 解析出的 IP 列表为空");
+            console.log("❌ [解析数据] 过滤后的 IP 列表为空！无法生成任何节点。");
+            $notification.post("CF 优选生成器", "生成 0 个节点", "解析出的有效 IP 列表为空，请检查 IP 源格式！");
             $done();
         }
     } else {
-        console.log("❌ 请求状态码异常: " + response.status);
+        console.log(`❌ [响应异常] 请求失败！HTTP 状态码异常，或数据内容为空。`);
+        $notification.post("CF 优选生成器", "生成 0 个节点", `服务器响应异常，状态码: ${response.status}`);
         $done();
     }
 });
