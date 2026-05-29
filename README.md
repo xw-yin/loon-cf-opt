@@ -6,9 +6,9 @@
 
 ## 📂 文件目录说明
 
-- **`cf_opt.plugin`**：Loon 插件配置文件。提供手机端的**可视化配置面板**，并注册一个每 12 小时（或手动）定时运行的生成脚本。同时会在本地声明并劫持 `speed.cloudflare.com` 的解密。
+- **`cf_opt.plugin`**：Loon 插件配置文件。提供手机端的**可视化配置面板**，并注册一个每 12 小时（或手动）定时运行的生成脚本。同时会在本地声明并劫持 `httpbin.org` 的解密。
 - **`cf_node_generator.js`**：节点生成器脚本。直连拉取最快的 IP，根据面板填写的凭据组装成 VLESS/Trojan 链接，并写入全局数据库 `CF_BEST_NODES` 中。
-- **`cf_sub_reader.js`**：【核心升级】节点读取中转器。通过 HTTP 重写拦截域名路径 `https://speed.cloudflare.com/cf_sub`，从全局缓存中读取生成好的优选节点直接返回给 Loon。
+- **`cf_sub_reader.js`**：【核心升级】节点读取中转器。通过 HTTP 重写拦截域名路径 `https://httpbin.org/cf_sub`，从全局缓存中读取生成好的优选节点直接返回给 Loon。
 
 ---
 
@@ -19,7 +19,7 @@
 ```bash
 cd /Users/yinxinwang/.gemini/antigravity/scratch/loon-cf-opt
 git add .
-git commit -m "Expose ultimate high-availability Loader via speed.cloudflare.com"
+git commit -m "Optimize Loader URL with httpbin.org to bypass DIRECT rules"
 git push -u origin main
 ```
 
@@ -47,9 +47,9 @@ git push -u origin main
 2. 点击右上角 `+`，选择 **“从链接安装”**。
 3. 在链接输入框中填入**高可用的虚拟订阅链接**（名称自定义为 `CF优选节点`）：
    ```url
-   https://speed.cloudflare.com/cf_sub
+   http://httpbin.org/cf_sub
    ```
-   *(别担心，由于这个域名是 Cloudflare 官方测速域名，DNS 解析 100% 成功！它不会真的连到互联网，而是会被我们的插件在手机本地直接拦截并返回优选节点！)*
+   *(注：使用 http:// 开头。httpbin.org 是标准的全球解析测试站，永远不会被国内分流规则匹配为 DIRECT 直连，因此 100% 能够被我们的重写引擎在本地拦截！)*
 4. 点击保存。
 
 ---
@@ -60,7 +60,7 @@ git push -u origin main
 3. 手机会立刻收到系统通知横幅：
    > **🔔 CF 优选生成器**
    > **已成功生成 10 个最优质的优选节点，Loader 节点已同步更新！**
-4. 此时回到 **“订阅”** 列表，手动更新一次你刚刚添加的 `CF优选节点`（即 `https://speed.cloudflare.com/cf_sub`）订阅。
+4. 此时回到 **“订阅”** 列表，手动更新一次你刚刚添加的 `CF优选节点`（即 `http://httpbin.org/cf_sub`）订阅。
 5. 去你的节点列表里看，10 个闪电般快速的优选节点已经完美呈现在里面！
 
 ---
