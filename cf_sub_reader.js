@@ -45,7 +45,9 @@ function getArguments() {
     
     // 3. 执行高鲁棒性参数解析
     if (queryString) {
-        let pairs = queryString.split('&');
+        // 关键：兼容 Loon 的标准逗号分隔（,）与常规 URL 传参（&）
+        let separator = queryString.includes(',') ? ',' : '&';
+        let pairs = queryString.split(separator);
         for (let pair of pairs) {
             let [key, val] = pair.split('=');
             if (key) {
