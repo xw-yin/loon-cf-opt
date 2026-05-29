@@ -1,25 +1,26 @@
 # ⚡️ Loon Cloudflare 优选 IP 自动生成器 (面板配置版)
 
-这是一个专为 iOS 网络代理工具 **Loon** 设计的极简优选 IP 自动生成器。它利用了 Loon 插件的可视化参数配置、本地持久化数据库和 **HTTP 响应劫持重写（Mock）**，实现了**全自动、全本地化、免修改代码的零维护体验**！
+这是一个专为 iOS 网络代理工具 **Loon** 设计的极简优选 IP 自动生成器。它利用了 Loon 插件的可视化参数配置和 **HTTP 响应劫持重写（Mock）**，实现了**全自动、全本地化、免修改代码的零维护体验**！
 
 ---
 
 ## 📂 文件目录说明
 
-- **`cf_opt.plugin`**：Loon 插件配置文件。提供手机端的**可视化配置面板**，并注册一个每 12 小时（或手动）定时运行的生成脚本。同时会在本地声明并劫持 `httpbin.org` 的解密。
-- **`cf_node_generator.js`**：节点生成器脚本。直连拉取最快的 IP，根据面板填写的凭据组装成 VLESS/Trojan 链接，并写入全局数据库 `CF_BEST_NODES` 中。
-- **`cf_sub_reader.js`**：【核心升级】节点读取中转器。通过 HTTP 重写拦截域名路径 `https://httpbin.org/cf_sub`，从全局缓存中读取生成好的优选节点直接返回给 Loon。
+- **`cf_opt.plugin`**：Loon 插件配置文件。提供手机端的**可视化配置面板**，并注册一个重写劫持规则，同时会在本地声明并劫持 `httpbin.org` 的解密。
+- **`cf_sub_reader.js`**：【终极形态】实时节点生成中转器。拦截域名路径 `http://httpbin.org/cf_sub` 后，**直接在本地实时拉取优选 IP / 随机碰撞网段，生成 10 个最快节点直接返回给 Loon**。免除了一切 Cron 定时任务、本地缓存以及进程数据不互通的烦恼！
 
 ---
 
-## 🚀 极简使用教程（一键生成，3分钟起飞）
+## 🚀 极简使用教程（一键生成，2分钟起飞）
+
+本方案已将所有逻辑合并入单个本地 HTTP 劫持脚本，实现了极简的“即更新即生成”体验！
 
 ### 第一步：推送最新代码到你的 GitHub 远程仓库
 在电脑终端（Terminal）运行以下命令，把本地的完整优化版代码推送到你的 GitHub：
 ```bash
 cd /Users/yinxinwang/.gemini/antigravity/scratch/loon-cf-opt
 git add .
-git commit -m "Optimize Loader URL with httpbin.org to bypass DIRECT rules"
+git commit -m "Expose combined loader script to achieve pure reactive zero-cache generation"
 git push -u origin main
 ```
 
@@ -51,17 +52,9 @@ git push -u origin main
    ```
    *(注：使用 http:// 开头。httpbin.org 是标准的全球解析测试站，永远不会被国内分流规则匹配为 DIRECT 直连，因此 100% 能够被我们的重写引擎在本地拦截！)*
 4. 点击保存。
+5. 手动点击更新你的 `CF优选节点` 订阅。
 
----
-
-### 第四步：首次运行与效果验证
-1. 打开 **Loon** -> 进入 **“配置”** -> 点击 **“脚本”**。
-2. 找到定时任务 `CF优选IP定时抓取`，点击右侧的 **“手动执行”**。
-3. 手机会立刻收到系统通知横幅：
-   > **🔔 CF 优选生成器**
-   > **已成功生成 10 个最优质的优选节点，Loader 节点已同步更新！**
-4. 此时回到 **“订阅”** 列表，手动更新一次你刚刚添加的 `CF优选节点`（即 `http://httpbin.org/cf_sub`）订阅。
-5. 去你的节点列表里看，10 个闪电般快速的优选节点已经完美呈现在里面！
+**大功告成！🎉 10 个闪电般快速的优选节点已经完美呈现在你的节点列表中，全部数据都在本地实时计算，没有任何延迟和缓存同步的麻烦！**
 
 ---
 
