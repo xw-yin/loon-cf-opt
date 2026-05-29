@@ -7,7 +7,7 @@ version = 1.7.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时生成并返回最优节点！ (完全本地实时合成，零延迟，免去一切缓存同步麻烦)
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=5, argument=[{uuid},{host},{path},{port},{protocol},{source_type},{isp},{node_count}], tag=CF优选节点中转
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=5, argument=[{uuid},{host},{path},{port},{protocol},{source_type},{isp},{node_count},{custom_source}], tag=CF优选节点中转
 
 [Argument]
 uuid = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
@@ -18,6 +18,7 @@ protocol = select, "vless", "trojan", tag=协议类型, desc=默认使用 VLESS
 source_type = select, "random", "list", tag=节点获取模式, desc=“random”为随机生成运营商专属IP段，“list”为拉取每日已测速好的优选IP
 isp = select, "cf", "all", "ct", "cu", "cmcc", "other", tag=运营商优选, desc=选择官方cf/三网融合all/电信ct/联通cu/移动cmcc/其他other
 node_count = select, "10", "5", "15", "20", tag=节点生成数量, desc=本地测速后挑选最快的节点数量，默认10个
+custom_source = input, "", tag=自定义优选源, desc=选填：用英文逗号分隔的IP（如 1.1.1.1,2.2.2.2）或存放优选IP的URL链接
 
 [MITM]
 # 必须解密目标测试域名，以劫持我们的虚拟订阅路径

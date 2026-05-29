@@ -28,7 +28,8 @@ function getArguments() {
         PROTOCOL: 'vless',                            // 默认测试协议
         SOURCE_TYPE: 'random',                        // 默认使用随机网段模式
         ISP: 'cf',                                    // 默认使用官方优选网段
-        NODE_COUNT: '10'                              // 默认生成 10 个节点
+        NODE_COUNT: '10',                             // 默认生成 10 个节点
+        CUSTOM_SOURCE: ''                             // 默认自定义优选源为空
     };
     
     // 1. 优先尝试从拦截请求 of URL 查询参数中获取
@@ -63,6 +64,7 @@ function getArguments() {
             if (isValid($argument.source_type)) args.SOURCE_TYPE = String($argument.source_type).trim();
             if (isValid($argument.isp)) args.ISP = String($argument.isp).trim();
             if (isValid($argument.node_count)) args.NODE_COUNT = String($argument.node_count).trim();
+            if (isValid($argument.custom_source)) args.CUSTOM_SOURCE = String($argument.custom_source).trim();
             
             console.log(`✅ [配置解析] 从对象参数中成功提取配置，UUID(脱敏): ${args.UUID.substring(0, 8)}******`);
             return args;
@@ -101,6 +103,7 @@ function getArguments() {
                     if (key === 'source_type') args.SOURCE_TYPE = decodedVal;
                     if (key === 'isp') args.ISP = decodedVal;
                     if (key === 'node_count') args.NODE_COUNT = decodedVal;
+                    if (key === 'custom_source') args.CUSTOM_SOURCE = decodedVal;
                 } else if (isPlaceholder) {
                     console.log(`⚠️ [配置解析] 检测到未替换的 Loon 占位符，已过滤并自动使用硬编码兜底值: ${key}=${val}`);
                 }
@@ -141,6 +144,10 @@ if (SOURCE_TYPE === 'random') {
     console.log(`   ├─ 运营商段: ${ISP === 'all' ? '🔀 三网大融合(各取' + NODE_COUNT + '个节点)' : ISP}`);
 }
 console.log(`   ├─ 数量: ${NODE_COUNT} 个`);
+const CUSTOM_SOURCE = String(config.CUSTOM_SOURCE || '').trim();
+if (CUSTOM_SOURCE) {
+    console.log(`   ├─ 自定义优选源: ${CUSTOM_SOURCE}`);
+}
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已脱敏)`);
 
 // ================= 网络请求 Promise 异步包装器 =================
@@ -189,7 +196,73 @@ async function start() {
     try {
         let nodeLinks = [];
 
-        if (SOURCE_TYPE === 'random') {
+        if (CUSTOM_SOURCE) {
+            console.log(`🚀 [自定义优选] 检测到用户配置了自定义优选源: ${CUSTOM_SOURCE}`);
+            let rawText = '';
+            if (CUSTOM_SOURCE.startsWith('http://') || CUSTOM_SOURCE.startsWith('https://')) {
+                console.log(`📡 [自定义优选] 正在拉取远程自定义 IP 列表: ${CUSTOM_SOURCE}`);
+                rawText = await fetchUrl(CUSTOM_SOURCE);
+                if (!rawText) {
+                    console.log(`❌ [自定义优选] 远程拉取失败！无法生成节点。`);
+                    returnMockResponse("");
+                    return;
+                }
+            } else {
+                console.log(`📝 [自定义优选] 正在直接解析用户输入的本地 IP 列表...`);
+                rawText = CUSTOM_SOURCE;
+            }
+
+            let lines = rawText.split(/[,\r\n]+/);
+            let pool = [];
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                
+                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                if (ipv4Match) {
+                    pool.push(ipv4Match[0]);
+                    return;
+                }
+                
+                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                if (ipv6Match) {
+                    pool.push(`[${ipv6Match[0]}]`);
+                    return;
+                }
+            });
+
+            console.log(`🎯 [自定义优选] 成功提取到 ${pool.length} 个合法 IP。`);
+            if (pool.length === 0) {
+                console.log(`❌ [自定义优选] 未能解析到任何合法的 IPv4 或 IPv6 地址！`);
+                returnMockResponse("");
+                return;
+            }
+
+            // 截取前 NODE_COUNT 个节点
+            let selectedIPs = pool.slice(0, NODE_COUNT);
+            
+            selectedIPs.forEach((ip, idx) => {
+                const remarkStr = `CF-自定义优选-${idx + 1}`;
+                const remark = encodeURIComponent(remarkStr);
+
+                let nodeLink = '';
+                if (PROTOCOL === 'vless') {
+                    if (isTls) {
+                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+                    } else {
+                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
+                    }
+                } else if (PROTOCOL === 'trojan') {
+                    if (isTls) {
+                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    } else {
+                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+                    }
+                }
+                if (nodeLink) nodeLinks.push(nodeLink);
+            });
+
+        } else if (SOURCE_TYPE === 'random') {
             // ================= 🎯 随机碰撞模式 =================
             if (ISP === 'all') {
                 // 🚀 【三网大融合模式】四种运营商各自拉取、各自生成 node_count 个节点，瞬间返回！
