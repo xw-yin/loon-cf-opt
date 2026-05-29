@@ -3,10 +3,13 @@
  * Cron: 0 0 */12 * * * (每12小时运行一次)
  */
 
-// 优质的公开优选 IP 源（每日自动更新）
-const IP_SOURCE_URL = 'https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt'; 
+// 优质的公开优选 IP 源（每日自动更新，使用 GitHub 镜像加速通道确保直连可达）
+const IP_SOURCE_URL = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt'; 
 
-$httpClient.get(IP_SOURCE_URL, function(err, response, data) {
+$httpClient.get({
+    url: IP_SOURCE_URL,
+    policy: "DIRECT" // 强制 Loon 走直连 (DIRECT) 路由，确保获取最契合你本地真实网络的 IP
+}, function(err, response, data) {
     if (err) {
         console.log("❌ 优选 IP 获取失败: " + err);
         $notification.post("CF 优选助手", "获取优选 IP 失败", err);
