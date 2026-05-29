@@ -7,16 +7,16 @@ version = 1.7.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时生成并返回最优节点！ (完全本地实时合成，零延迟，免去一切缓存同步麻烦)
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js, argument=UUID={UUID}&HOST={HOST}&PATH={PATH}&PORT={PORT}&PROTOCOL={PROTOCOL}&SOURCE_TYPE={SOURCE_TYPE}&ISP={ISP}, tag=CF优选节点中转
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js, argument=uuid={uuid}&host={host}&path={path}&port={port}&protocol={protocol}&source_type={source_type}&isp={isp}, tag=CF优选节点中转
 
 [Argument]
-UUID = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
-HOST = input, "your-worker-domain.com", tag=Worker 域名, desc=填入绑定你的 Worker/Pages 自定义域名
-PATH = input, "/video", tag=连接路径, desc=填入传输路径 (如 /video 或 /)
-PORT = select, "443", "80", "2052", "2053", "2082", "2083", "2086", "2087", "2095", "2096", "8080", "8443", "8880", tag=端口, desc=默认使用 443
-PROTOCOL = select, "vless", "trojan", tag=协议类型, desc=默认使用 VLESS
-SOURCE_TYPE = select, "random", "list", tag=节点获取模式, desc=“random”为随机生成运营商专属IP段，“list”为拉取每日已测速好的优选IP
-ISP = select, "cf", "ct", "cu", "cmcc", tag=运营商优选, desc=仅在随机模式生效：选择你手机卡/宽带的运营商（电信ct/联通cu/移动cmcc/官方cf）
+uuid = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
+host = input, "your-worker-domain.com", tag=Worker 域名, desc=填入绑定你的 Worker/Pages 自定义域名
+path = input, "/video", tag=连接路径, desc=填入传输路径 (如 /video 或 /)
+port = select, "443", "80", "2052", "2053", "2082", "2083", "2086", "2087", "2095", "2096", "8080", "8443", "8880", tag=端口, desc=默认使用 443
+protocol = select, "vless", "trojan", tag=协议类型, desc=默认使用 VLESS
+source_type = select, "random", "list", tag=节点获取模式, desc=“random”为随机生成运营商专属IP段，“list”为拉取每日已测速好的优选IP
+isp = select, "cf", "ct", "cu", "cmcc", tag=运营商优选, desc=仅在随机模式生效：选择你手机卡/宽带的运营商（电信ct/联通cu/移动cmcc/官方cf）
 
 [MITM]
 # 必须解密目标测试域名，以劫持我们的虚拟订阅路径

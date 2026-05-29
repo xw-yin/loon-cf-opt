@@ -20,32 +20,58 @@ function getArguments() {
         ISP: 'cf'                                     // 默认使用官方优选网段
     };
     
-    if (typeof $argument !== 'undefined' && $argument) {
-        console.log("📝 [配置解析] 收到 Loon 面板传入的原始参数: " + $argument);
+    // 1. 优先尝试从拦截请求的 URL 查询参数中获取（100% 稳定，支持多订阅个性化参数，无视 Loon 插件 Bug）
+    let queryString = '';
+    if (typeof $request !== 'undefined' && $request && $request.url) {
+        let targetUrl = $request.url;
+        console.log("📡 [配置解析] 拦截到订阅请求 URL: " + targetUrl);
+        if (targetUrl.includes('?')) {
+            queryString = targetUrl.split('?')[1];
+            console.log("🔍 [配置解析] 从 URL 中提取到查询参数: " + queryString);
+        }
+    }
+    
+    // 2. 如果 URL 中没有携带参数，则尝试从 Loon 插件面板配置传入的 $argument 变量中获取
+    if (!queryString && typeof $argument !== 'undefined' && $argument) {
+        console.log("📝 [配置解析] URL 无参数，尝试解析 Loon 插件面板传入参数: " + $argument);
         let argStr = String($argument).trim();
-        
-        // 强力剥离首尾可能存在的双引号或单引号
         if (argStr.startsWith('"') && argStr.endsWith('"')) {
             argStr = argStr.slice(1, -1);
         } else if (argStr.startsWith("'") && argStr.endsWith("'")) {
             argStr = argStr.slice(1, -1);
         }
-        
-        let pairs = argStr.split('&');
+        queryString = argStr;
+    }
+    
+    // 3. 执行高鲁棒性参数解析
+    if (queryString) {
+        let pairs = queryString.split('&');
         for (let pair of pairs) {
             let [key, val] = pair.split('=');
             if (key) {
-                key = key.trim();
+                key = key.trim().toLowerCase(); // 统一转换为小写，彻底消除大小写敏感问题
                 val = val ? val.trim() : '';
                 
-                // 过滤掉无效值并赋值，防止被替换为空
-                if (val !== '' && val !== 'undefined' && val !== 'null') {
-                    args[key] = decodeURIComponent(val);
+                // 关键点：如果是未替换的 Loon 占位符字面量（如 {uuid} 或 %7Buuid%7D），则必须过滤掉，防止污染默认值并导致 NaN
+                let isPlaceholder = val.startsWith('{') && val.endsWith('}') || 
+                                    val.startsWith('%7B') && val.endsWith('%7D');
+                
+                if (val !== '' && val !== 'undefined' && val !== 'null' && !isPlaceholder) {
+                    let decodedVal = decodeURIComponent(val);
+                    if (key === 'uuid' || key === 'password') args.UUID = decodedVal;
+                    if (key === 'host' || key === 'domain') args.HOST = decodedVal;
+                    if (key === 'path') args.PATH = decodedVal;
+                    if (key === 'port') args.PORT = decodedVal;
+                    if (key === 'protocol') args.PROTOCOL = decodedVal;
+                    if (key === 'source_type') args.SOURCE_TYPE = decodedVal;
+                    if (key === 'isp') args.ISP = decodedVal;
+                } else if (isPlaceholder) {
+                    console.log(`⚠️ [配置解析] 检测到未替换的 Loon 占位符，已过滤并自动使用硬编码兜底值: ${key}=${val}`);
                 }
             }
         }
     } else {
-        console.log("⚠️ [配置解析] 未检测到 Loon 面板传入的参数，将使用默认测试配置运行！");
+        console.log("⚠️ [配置解析] 未检测到任何传入参数，将使用代码内硬编码的测试配置运行！");
     }
     return args;
 }
