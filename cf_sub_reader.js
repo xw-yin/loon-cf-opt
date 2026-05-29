@@ -22,11 +22,26 @@ function getArguments() {
     
     if (typeof $argument !== 'undefined' && $argument) {
         console.log("📝 [配置解析] 收到 Loon 面板传入的原始参数: " + $argument);
-        let pairs = $argument.split('&');
+        let argStr = String($argument).trim();
+        
+        // 强力剥离首尾可能存在的双引号或单引号
+        if (argStr.startsWith('"') && argStr.endsWith('"')) {
+            argStr = argStr.slice(1, -1);
+        } else if (argStr.startsWith("'") && argStr.endsWith("'")) {
+            argStr = argStr.slice(1, -1);
+        }
+        
+        let pairs = argStr.split('&');
         for (let pair of pairs) {
             let [key, val] = pair.split('=');
-            if (key && val) {
-                args[key] = decodeURIComponent(val);
+            if (key) {
+                key = key.trim();
+                val = val ? val.trim() : '';
+                
+                // 过滤掉无效值并赋值，防止被替换为空
+                if (val !== '' && val !== 'undefined' && val !== 'null') {
+                    args[key] = decodeURIComponent(val);
+                }
             }
         }
     } else {
