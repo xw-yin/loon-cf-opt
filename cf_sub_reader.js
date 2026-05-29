@@ -31,9 +31,34 @@ function getArguments() {
         }
     }
     
-    // 2. 如果 URL 中没有携带参数，则尝试从 Loon 插件面板配置传入的 $argument 变量中获取
+    // 2. 如果 URL 没有携带参数，处理 Loon 官方强大的插件面板传参
     if (!queryString && typeof $argument !== 'undefined' && $argument) {
-        console.log("📝 [配置解析] URL 无参数，尝试解析 Loon 插件面板传入参数: " + $argument);
+        // === 核心关键：Loon 规范中，argument=[{uuid},{host}] 会将 $argument 注入为真正的 JS 对象！ ===
+        if (typeof $argument === 'object') {
+            console.log("📝 [配置解析] 检测到 Loon 官方标准对象型参数注入，正在安全提取属性...");
+            
+            const isValid = (val) => {
+                if (val === undefined || val === null) return false;
+                let s = String(val).trim();
+                return s !== '' && s !== 'undefined' && s !== 'null' && 
+                       !(s.startsWith('{') && s.endsWith('}')) && 
+                       !(s.startsWith('%7B') && s.endsWith('%7D'));
+            };
+            
+            if (isValid($argument.uuid)) args.UUID = String($argument.uuid).trim();
+            if (isValid($argument.host)) args.HOST = String($argument.host).trim();
+            if (isValid($argument.path)) args.PATH = String($argument.path).trim();
+            if (isValid($argument.port)) args.PORT = String($argument.port).trim();
+            if (isValid($argument.protocol)) args.PROTOCOL = String($argument.protocol).trim();
+            if (isValid($argument.source_type)) args.SOURCE_TYPE = String($argument.source_type).trim();
+            if (isValid($argument.isp)) args.ISP = String($argument.isp).trim();
+            
+            console.log(`✅ [配置解析] 从对象参数中成功提取配置，UUID(脱敏): ${args.UUID.substring(0, 8)}******`);
+            return args;
+        } 
+        
+        // === 降级兜底：如果是旧版或特殊的字符串形式，继续执行字符串强力解析 ===
+        console.log("📝 [配置解析] 检测到字符串型参数传参，开始兼容性字符串解析: " + $argument);
         let argStr = String($argument).trim();
         if (argStr.startsWith('"') && argStr.endsWith('"')) {
             argStr = argStr.slice(1, -1);
@@ -43,7 +68,7 @@ function getArguments() {
         queryString = argStr;
     }
     
-    // 3. 执行高鲁棒性参数解析
+    // 3. 执行兼容性字符串参数解析 (URL 参数或旧版 String $argument)
     if (queryString) {
         // 关键：兼容 Loon 的标准逗号分隔（,）与常规 URL 传参（&）
         let separator = queryString.includes(',') ? ',' : '&';
@@ -54,7 +79,7 @@ function getArguments() {
                 key = key.trim().toLowerCase(); // 统一转换为小写，彻底消除大小写敏感问题
                 val = val ? val.trim() : '';
                 
-                // 关键点：如果是未替换的 Loon 占位符字面量（如 {uuid} 或 %7Buuid%7D），则必须过滤掉，防止污染默认值并导致 NaN
+                // 过滤掉未替换的 Loon 占位符字面量（如 {uuid}），防止污染默认值并导致 NaN
                 let isPlaceholder = val.startsWith('{') && val.endsWith('}') || 
                                     val.startsWith('%7B') && val.endsWith('%7D');
                 
