@@ -79,22 +79,25 @@ $httpClient.get({
                 }
             });
 
-            // 将所有生成的节点拼接成文本返回给 Loon
+            // 将所有生成的节点拼接成文本
             const resultNodes = nodeLinks.join('\n');
             
-            // 进行 Base64 编码，因为 Loon 脚本节点订阅支持返回 Base64 编码的节点列表
+            // 进行 Base64 编码
             const base64Nodes = btoa(resultNodes);
             
-            console.log(`✅ 成功生成 ${nodeLinks.length} 个优选节点！`);
-            $notification.post("CF 优选生成器", "节点生成成功", `已成功生成 ${nodeLinks.length} 个最优质的优选节点！`);
+            // 保存至本地全局持久化存储中
+            $persistentStore.write(base64Nodes, "CF_BEST_NODES");
             
-            $done(base64Nodes);
+            console.log(`✅ 成功生成 ${nodeLinks.length} 个优选节点并写入缓存！`);
+            $notification.post("CF 优选生成器", "节点生成成功", `已成功生成 ${nodeLinks.length} 个最优质的优选节点，Loader 节点已同步更新！`);
+            
+            $done(); // 定时任务脚本执行完毕
         } else {
             console.log("❌ 解析出的 IP 列表为空");
-            $done("");
+            $done();
         }
     } else {
         console.log("❌ 请求状态码异常: " + response.status);
-        $done("");
+        $done();
     }
 });
