@@ -44,6 +44,15 @@ const ISP = config.ISP.toLowerCase(); // 'cf', 'ct', 'cu', 'cmcc'
 const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096];
 const isTls = TLS_PORTS.includes(PORT);
 
+// 运营商 Remarks 标识映射
+const ISP_NAME_MAP = {
+    "cf": "官方",
+    "ct": "电信",
+    "cu": "联通",
+    "cmcc": "移动",
+    "other": "其他"
+};
+
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 域名: ${HOST}`);
@@ -51,7 +60,7 @@ console.log(`   ├─ 路径: ${PATH}`);
 console.log(`   ├─ 端口: ${PORT}`);
 console.log(`   ├─ 模式: ${SOURCE_TYPE === 'random' ? '🎯 运营商专属网段随机生成' : '📋 每日已测速优选列表'}`);
 if (SOURCE_TYPE === 'random') {
-    const ispName = { cf: '官方优选', ct: '电信优选', cu: '联通优选', cmcc: '移动优选' }[ISP];
+    const ispName = { cf: '官方优选', ct: '电信优选', cu: '联通优选', cmcc: '移动优选', other: '其他优选' }[ISP];
     console.log(`   ├─ 运营商段: ${ispName} (${ISP})`);
 }
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已进行脱敏处理)`);
@@ -60,12 +69,14 @@ console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已进行脱敏处
 let IP_SOURCE_URL = '';
 if (SOURCE_TYPE === 'random') {
     // 随机模式，获取指定运营商的 CIDR 网段列表
-    IP_SOURCE_URL = ISP === 'cf' 
+    IP_SOURCE_URL = (ISP === 'cf' || ISP === 'other')
         ? 'https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt'
         : `https://ghproxy.net/https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/${ISP}.txt`;
 } else {
     // 列表模式，拉取每日测速后的 IP
-    IP_SOURCE_URL = 'https://addressesapi.090227.xyz/CloudFlareYes';
+    IP_SOURCE_URL = ISP === 'other'
+        ? 'https://zip.cm.edu.kg/all.txt'
+        : 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
 }
 
 console.log(`📡 [网络请求] 开始通过直连 (DIRECT) 路由获取 IP 数据源...`);
@@ -129,35 +140,63 @@ $httpClient.get({
 
         } else {
             // ================= 模式 2：每日已测速优选列表 =================
-            console.log("🔨 [数据解析] 开始使用中国大陆优化版优选 API 提取已测速的合法 IP...");
-            let lines = data.split('\n');
-            let pool = [];
-            lines.forEach(line => {
-                line = line.trim();
-                if (!line || line.startsWith('#')) return;
+            if (ISP === 'other') {
+                console.log("🔨 [数据解析] 开始使用中国大陆优化版其他 IP 数据源...");
+                let lines = data.split('\n');
+                let pool = [];
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (!line || line.startsWith('#')) return;
+                    
+                    let parts = line.split('#');
+                    let ipPort = parts[0].trim();
+                    let country = parts[1] ? parts[1].trim().toUpperCase() : 'UNK';
+                    
+                    let ip = ipPort.split(':')[0].trim();
+                    let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                    if (ipv4Match) {
+                        pool.push({ ip: ipv4Match[0], country: country });
+                    }
+                });
+
+                const ASIA_REGIONS = ['HK', 'TW', 'JP', 'SG', 'KR'];
+                let asianPool = pool.filter(item => ASIA_REGIONS.includes(item.country));
+                let otherPool = pool.filter(item => !ASIA_REGIONS.includes(item.country));
                 
-                let parts = line.split('#');
-                let ip = parts[0].trim();
-                let tag = parts[1] ? parts[1].trim().toUpperCase() : '';
+                asianPool.sort(() => Math.random() - 0.5);
+                otherPool.sort(() => Math.random() - 0.5);
                 
-                let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                if (ipv4Match) {
-                    pool.push({ ip: ipv4Match[0], tag: tag });
+                let sortedPool = [...asianPool, ...otherPool];
+                if (sortedPool.length > 0) {
+                    let selectedItems = sortedPool.slice(0, 10);
+                    selectedItems.forEach(item => {
+                        ipList.push(item.ip);
+                    });
+                    console.log(`   └─ 成功提取出低延迟优选 IP 数量: ${ipList.length} 个`);
+                } else {
+                    console.log("❌ [解析失败] 提取的 IP 列表为空！");
                 }
-            });
-            
-            let filtered = [];
-            if (ISP === 'ct') filtered = pool.filter(item => item.tag.startsWith('CT'));
-            else if (ISP === 'cu') filtered = pool.filter(item => item.tag.startsWith('CU'));
-            else if (ISP === 'cmcc') filtered = pool.filter(item => item.tag.startsWith('CM'));
-            else filtered = pool.filter(item => !item.tag.startsWith('CT') && !item.tag.startsWith('CU') && !item.tag.startsWith('CM'));
-            
-            if (filtered.length === 0) filtered = pool;
-            
-            filtered.forEach(item => {
-                ipList.push(item.ip);
-            });
-            console.log(`   └─ 过滤并成功提取出 [${ISP.toUpperCase()}] 优选 IP 数量: ${ipList.length} 个`);
+            } else {
+                console.log("🔨 [数据解析] 开始使用原有 vfarid 优选列表提取 IP...");
+                let lines = data.split('\n');
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+                    
+                    let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                    if (ipv4Match) {
+                        ipList.push(ipv4Match[0]);
+                        return;
+                    }
+                    
+                    let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                    if (ipv6Match) {
+                        ipList.push(`[${ipv6Match[0]}]`);
+                        return;
+                    }
+                });
+                console.log(`   └─ 成功提取出有效 IP 数量: ${ipList.length} 个`);
+            }
         }
 
         if (ipList.length > 0) {
@@ -169,12 +208,13 @@ $httpClient.get({
 
             // 循环遍历优选 IP，直接生成对应的节点
             bestIPs.forEach((ip, index) => {
+                const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
                 let remarkStr = '';
                 if (SOURCE_TYPE === 'random') {
-                    remarkStr = `CF${ISP.toUpperCase()}随机-${index + 1}`;
+                    remarkStr = `CF-${ispMark}-随机-${index + 1}`;
                 } else {
                     // 列表模式：保持相同的命名结构，但名字叫“列表”而非“随机”
-                    remarkStr = `CF${ISP.toUpperCase()}列表-${index + 1}`;
+                    remarkStr = `CF-${ispMark}-列表-${index + 1}`;
                 }
                 let remark = encodeURIComponent(remarkStr);
 
