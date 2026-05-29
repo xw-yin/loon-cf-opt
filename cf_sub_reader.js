@@ -36,13 +36,19 @@ function getArguments() {
 }
 
 const config = getArguments();
-const UUID = config.UUID;
-const HOST = config.HOST;
-const PATH = config.PATH;
-const PORT = Number(config.PORT || 443);
-const PROTOCOL = config.PROTOCOL.toLowerCase();
-const SOURCE_TYPE = config.SOURCE_TYPE.toLowerCase(); // 'random' 或 'list'
-const ISP = config.ISP.toLowerCase(); // 'cf', 'ct', 'cu', 'cmcc'
+const UUID = String(config.UUID || '').trim();
+const HOST = String(config.HOST || '').trim();
+const PATH = String(config.PATH || '/').trim();
+const PORT = Number(String(config.PORT || '').trim() || 443);
+
+let PROTOCOL = String(config.PROTOCOL || '').trim().toLowerCase();
+if (PROTOCOL !== 'vless' && PROTOCOL !== 'trojan') {
+    console.log(`⚠️ [参数修正] 解析到的协议为 "${PROTOCOL}"，非 VLESS/Trojan，已自动纠正并兜底为 "vless"！`);
+    PROTOCOL = 'vless';
+}
+
+const SOURCE_TYPE = String(config.SOURCE_TYPE || 'random').trim().toLowerCase(); // 'random' 或 'list'
+const ISP = String(config.ISP || 'cf').trim().toLowerCase(); // 'cf', 'ct', 'cu', 'cmcc'
 
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
