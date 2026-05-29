@@ -1,18 +1,17 @@
 [General]
-name = ⚡️ 订阅自动注入 Cloudflare 优选 IP
-desc = 自动定时维护CF优选IP缓存，并在更新节点订阅时，将最新优选IP注入到节点中，实现速度起飞！
+name = ⚡️ Cloudflare 优选 IP 自动生成器 (面板配置版)
+desc = 自动拉取优选 IP 并直接在本地生成代理节点。支持直接在 Loon 插件设置面板中配置你的 UUID/密码、域名、路径和协议，零代码修改！
 author = Antigravity
-homepage = https://github.com/cmliu/edgetunnel
-version = 1.1.0
+homepage = https://github.com/xw-yin/loon-cf-opt
+version = 1.2.0
 
-[Script]
-# 1. 定时任务：每 12 小时获取一次优选 IP 并写入本地缓存
-cron "0 0 */12 * * *" script-path=cf_cron.js, tag=CF优选IP定时抓取
+[Proxy]
+# 声明脚本节点订阅，并将面板参数注入到脚本中
+CF优选订阅 = script, script-path=cf_node_generator.js, argument="UUID={UUID}&HOST={HOST}&PATH={PATH}&PORT={PORT}&PROTOCOL={PROTOCOL}", interval=43200
 
-# 2. 重写任务：拦截订阅链接，动态用缓存的优选 IP 替换节点地址
-# ⚠️ 注意：使用时请将下面的 your-sub-link.com 替换为你真实的订阅链接域名
-http-response ^https?:\/\/your-sub-link\.com\/sub script-path=cf_sub.js, requires-body=true, tag=动态注入CF优选IP
-
-[MITM]
-# ⚠️ 使用时请将下面的域名替换为你真实的订阅链接域名，以激活 HTTPS 流量解析
-hostname = your-sub-link.com
+[Argument]
+UUID = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
+HOST = input, "your-worker-domain.com", tag=Worker 域名, desc=填入绑定你的 Worker/Pages 自定义域名
+PATH = input, "/video", tag=连接路径, desc=填入传输路径 (如 /video 或 /)
+PORT = select, "443", "80", "2052", "2053", "2082", "2083", "2086", "2087", "2095", "2096", "8080", "8443", "8880", tag=端口, desc=默认使用 443
+PROTOCOL = select, "vless", "trojan", tag=协议类型, desc=默认使用 VLESS

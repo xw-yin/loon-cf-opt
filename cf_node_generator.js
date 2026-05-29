@@ -6,12 +6,34 @@
  * CF优选订阅 = script, script-path=cf_node_generator.js, interval=43200
  */
 
-// ================= ⚠️ 填入你自己的 Cloudflare Worker 配置 =================
-const UUID = '90cd4a77-141a-43c9-991b-08263cfe9c10'; // 你的 UUID 或 密码
-const HOST = 'your-worker-domain.com';               // 你的 Worker 自定义域名
-const PATH = '/video';                             // 你的 传输路径 (如 /video 或 /)
-const PORT = 443;                                  // 端口 (一般是 443)
-const PROTOCOL = 'vless';                          // 协议类型，支持 'vless' 或 'trojan'
+// ================= 解析 Loon 插件面板传入的配置参数 =================
+function getArguments() {
+    let args = {
+        UUID: '90cd4a77-141a-43c9-991b-08263cfe9c10', // 默认测试 UUID
+        HOST: 'your-worker-domain.com',               // 默认测试域名
+        PATH: '/video',                               // 默认测试路径
+        PORT: '443',                                  // 默认测试端口
+        PROTOCOL: 'vless'                             // 默认测试协议
+    };
+    
+    if (typeof $argument !== 'undefined' && $argument) {
+        let pairs = $argument.split('&');
+        for (let pair of pairs) {
+            let [key, val] = pair.split('=');
+            if (key && val) {
+                args[key] = decodeURIComponent(val);
+            }
+        }
+    }
+    return args;
+}
+
+const config = getArguments();
+const UUID = config.UUID;
+const HOST = config.HOST;
+const PATH = config.PATH;
+const PORT = Number(config.PORT || 443);
+const PROTOCOL = config.PROTOCOL.toLowerCase();
 // =======================================================================
 
 // 优质的公开优选 IP 源 (使用 GitHub 镜像加速通道，确保直连可达)
