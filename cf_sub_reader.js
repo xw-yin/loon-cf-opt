@@ -15,7 +15,8 @@ const ISP_NAME_MAP = {
     "ct": "电信",
     "cu": "联通",
     "cmcc": "移动",
-    "other": "其他"
+    "other": "其他",
+    "custom": "自定义"
 };
 
 // ================= 解析 Loon 插件面板传入的配置参数 =================
@@ -196,12 +197,18 @@ async function start() {
     try {
         let nodeLinks = [];
 
-        if (CUSTOM_SOURCE) {
-            console.log(`🚀 [自定义优选] 检测到用户配置了自定义优选源: ${CUSTOM_SOURCE}`);
+        if (ISP === 'custom') {
+            console.log(`🚀 [自定义优选] 检测到选用了自定义源模式，配置为: ${CUSTOM_SOURCE}`);
+            let source = CUSTOM_SOURCE.trim();
+            if (!source) {
+                console.log(`⚠️ [自定义优选] 未填写自定义优选源内容，将自动降级使用 "其他" (zip.cm.edu.kg) 优选源！`);
+                source = 'https://zip.cm.edu.kg/all.txt';
+            }
+
             let rawText = '';
-            if (CUSTOM_SOURCE.startsWith('http://') || CUSTOM_SOURCE.startsWith('https://')) {
-                console.log(`📡 [自定义优选] 正在拉取远程自定义 IP 列表: ${CUSTOM_SOURCE}`);
-                rawText = await fetchUrl(CUSTOM_SOURCE);
+            if (source.startsWith('http://') || source.startsWith('https://')) {
+                console.log(`📡 [自定义优选] 正在拉取远程自定义 IP 列表: ${source}`);
+                rawText = await fetchUrl(source);
                 if (!rawText) {
                     console.log(`❌ [自定义优选] 远程拉取失败！无法生成节点。`);
                     returnMockResponse("");
@@ -209,7 +216,7 @@ async function start() {
                 }
             } else {
                 console.log(`📝 [自定义优选] 正在直接解析用户输入的本地 IP 列表...`);
-                rawText = CUSTOM_SOURCE;
+                rawText = source;
             }
 
             let lines = rawText.split(/[,\r\n]+/);
@@ -242,7 +249,9 @@ async function start() {
             let selectedIPs = pool.slice(0, NODE_COUNT);
             
             selectedIPs.forEach((ip, idx) => {
-                const remarkStr = `CF-自定义优选-${idx + 1}`;
+                const ispMark = ISP_NAME_MAP[ISP] || "自定义";
+                const modeName = SOURCE_TYPE === 'random' ? '随机' : '列表';
+                const remarkStr = `CF-${ispMark}-${modeName}-${idx + 1}`;
                 const remark = encodeURIComponent(remarkStr);
 
                 let nodeLink = '';
