@@ -6,8 +6,8 @@ homepage = https://github.com/xw-yin/loon-cf-opt
 version = 1.2.0
 
 [Proxy]
-# 声明脚本节点订阅，并将面板参数注入到脚本中
-CF优选订阅 = script, script-path=cf_node_generator.js, argument="UUID={UUID}&HOST={HOST}&PATH={PATH}&PORT={PORT}&PROTOCOL={PROTOCOL}", interval=43200
+# 声明脚本节点订阅，并将面板参数注入到脚本中 (使用绝对 URL 确保 Loon 能远程拉取脚本)
+CF优选订阅 = script, script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_node_generator.js, argument="UUID={UUID}&HOST={HOST}&PATH={PATH}&PORT={PORT}&PROTOCOL={PROTOCOL}", interval=43200
 
 [Argument]
 UUID = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
