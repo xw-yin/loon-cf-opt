@@ -180,7 +180,7 @@ function testIP(ip) {
             headers: {
                 "Host": targetHost
             },
-            timeout: 1000, // 1 秒超时强行截断，保证高效率
+            timeout: 3000, // 3 秒超时限制，完美兼顾无线移动网络波动，防止因建连慢被误杀
             policy: "DIRECT" // 必须直连以捕获物理真实延迟
         }, function(err, resp, data) {
             const latency = Date.now() - startTime;
