@@ -173,12 +173,15 @@ function testIP(ip) {
         // 关键点：向 Cloudflare 边缘节点发送请求时，必须在 Headers 中携带 HOST 字段，
         // 否则 Cloudflare 防火墙会因为找不到域名主机而直接拒绝/返回 403 导致测速可用 IP 为 0！
         // 统一且必须使用官方特许测速域名 speed.cloudflare.com 作为 Host，以防用户自定义域名触发 301/403 阻断！
+        // 关键点：必须在 Headers 中加入合法的 iOS 浏览器 User-Agent 头部伪装，
+        // 否则 Cloudflare 会将其判定为恶意机器人自动化流量，并直接返回 403 Forbidden 阻断测速！
         const targetHost = 'speed.cloudflare.com';
         
         $httpClient.get({
             url: `http://${ip}/cdn-cgi/trace`,
             headers: {
-                "Host": targetHost
+                "Host": targetHost,
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
             },
             timeout: 3000, // 3 秒超时限制，完美兼顾无线移动网络波动，防止因建连慢被误杀
             policy: "DIRECT" // 必须直连以捕获物理真实延迟
