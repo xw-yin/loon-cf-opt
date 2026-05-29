@@ -170,12 +170,10 @@ function testIP(ip) {
     return new Promise((resolve) => {
         const startTime = Date.now();
         
-        // 关键点：向 Cloudflare 边缘节点发送请求时，必须在 Headers 中携带 HOST 字段，
-        // 否则 Cloudflare 防火墙会因为找不到域名主机而直接拒绝/返回 403 导致测速可用 IP 为 0！
-        // 统一且必须使用官方特许测速域名 speed.cloudflare.com 作为 Host，以防用户自定义域名触发 301/403 阻断！
+        // 统一且必须使用官方特许测速域名 1.1.1.1 作为 Host，以防用户自定义域名触发 301/403 阻断！
         // 关键点：必须在 Headers 中加入合法的 iOS 浏览器 User-Agent 头部伪装，
         // 否则 Cloudflare 会将其判定为恶意机器人自动化流量，并直接返回 403 Forbidden 阻断测速！
-        const targetHost = 'speed.cloudflare.com';
+        const targetHost = '1.1.1.1';
         
         $httpClient.get({
             url: `http://${ip}/cdn-cgi/trace`,
