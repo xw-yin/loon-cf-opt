@@ -172,8 +172,8 @@ function testIP(ip) {
         
         // 关键点：向 Cloudflare 边缘节点发送请求时，必须在 Headers 中携带 HOST 字段，
         // 否则 Cloudflare 防火墙会因为找不到域名主机而直接拒绝/返回 403 导致测速可用 IP 为 0！
-        // Host 优先使用用户的自定义域名，其次使用 CF 官方测速域名 speed.cloudflare.com 作为通用兜底。
-        const targetHost = (HOST && HOST !== 'your-worker-domain.com') ? HOST : 'speed.cloudflare.com';
+        // 统一且必须使用官方特许测速域名 speed.cloudflare.com 作为 Host，以防用户自定义域名触发 301/403 阻断！
+        const targetHost = 'speed.cloudflare.com';
         
         $httpClient.get({
             url: `http://${ip}/cdn-cgi/trace`,
