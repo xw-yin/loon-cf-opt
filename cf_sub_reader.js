@@ -171,23 +171,18 @@ function fetchUrl(url, timeout) {
     });
 }
 
-function postJson(url, body, timeout) {
+function fetchGeoUrl(url, timeout) {
     return new Promise((resolve) => {
         const request = {
-            url: url,
-            policy: "DIRECT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(body)
+            url: url
         };
         if (timeout) request.timeout = timeout;
 
-        $httpClient.post(request, function(err, resp, data) {
+        $httpClient.get(request, function(err, resp, data) {
             if (!err && resp && resp.status === 200 && data) {
                 resolve(data);
             } else {
-                console.log(`⚠️ [网络获取] 直连请求 GeoIP 接口失败: ${url}`);
+                console.log(`⚠️ [网络获取] GeoIP 接口请求失败: ${url}`);
                 resolve('');
             }
         });
@@ -213,40 +208,34 @@ function getRawIp(ip) {
 
 async function fetchCountryCode(ip) {
     const rawIp = getRawIp(ip);
-    const data = await fetchUrl(`https://ipwho.is/${encodeURIComponent(rawIp)}`, 5);
-    if (!data) return 'UNK';
+    const encodedIp = encodeURIComponent(rawIp);
+    const providers = [
+        {
+            url: `https://ipinfo.io/${encodedIp}/country`,
+            parse: data => normalizeCountryCode(data)
+        },
+        {
+            url: `https://api.ipapi.is/?q=${encodedIp}`,
+            parse: data => normalizeCountryCode(JSON.parse(data).location.country_code)
+        },
+        {
+            url: `https://ipwho.is/${encodedIp}`,
+            parse: data => normalizeCountryCode(JSON.parse(data).country_code)
+        }
+    ];
 
-    try {
-        const result = JSON.parse(data);
-        return normalizeCountryCode(result.country_code);
-    } catch (e) {
-        console.log(`⚠️ [国家识别] 无法解析 IP ${rawIp} 的国家查询结果。`);
-        return 'UNK';
+    for (const provider of providers) {
+        const data = await fetchGeoUrl(provider.url, 6);
+        if (!data) continue;
+
+        try {
+            const country = provider.parse(data);
+            if (country !== 'UNK') return country;
+        } catch (e) {
+            console.log(`⚠️ [国家识别] 无法解析 IP ${rawIp} 的 GeoIP 查询结果。`);
+        }
     }
-}
-
-async function fetchCountryCodesBatch(ips) {
-    const rawIps = ips.map(ip => getRawIp(ip));
-    const data = await postJson(
-        'http://ip-api.com/batch?fields=status,countryCode,query',
-        rawIps,
-        8
-    );
-    if (!data) return {};
-
-    try {
-        const results = JSON.parse(data);
-        const countryMap = {};
-        results.forEach(result => {
-            if (result && result.status === 'success') {
-                countryMap[result.query] = normalizeCountryCode(result.countryCode);
-            }
-        });
-        return countryMap;
-    } catch (e) {
-        console.log(`⚠️ [国家识别] 无法解析批量 GeoIP 查询结果。`);
-        return {};
-    }
+    return 'UNK';
 }
 
 async function resolveCountryCodes(items) {
@@ -256,16 +245,11 @@ async function resolveCountryCodes(items) {
 
     if (unknownIps.length === 0) return items;
 
-    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过批量 GeoIP 接口补齐...`);
-    const batchCountryMap = await fetchCountryCodesBatch(unknownIps);
-    const fallbackIps = unknownIps.filter(ip => !batchCountryMap[getRawIp(ip)]);
-    const fallbackCodes = await Promise.all(fallbackIps.map(ip => fetchCountryCode(ip)));
+    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过多源 GeoIP 接口补齐...`);
+    const codes = await Promise.all(unknownIps.map(ip => fetchCountryCode(ip)));
     const countryMap = {};
-    unknownIps.forEach(ip => {
-        countryMap[ip] = batchCountryMap[getRawIp(ip)] || 'UNK';
-    });
-    fallbackIps.forEach((ip, idx) => {
-        countryMap[ip] = fallbackCodes[idx];
+    unknownIps.forEach((ip, idx) => {
+        countryMap[ip] = codes[idx];
     });
 
     return items.map(item => createIpItem(

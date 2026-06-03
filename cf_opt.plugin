@@ -3,11 +3,11 @@ name = ⚡️ Cloudflare 优选 IP 自动生成器 (面板配置版)
 desc = 定时/手动拉取优选 IP 并直接在本地生成代理节点。支持在 Loon 插件设置面板中配置你的 UUID/密码、域名、路径和协议，零代码修改！
 author = Antigravity
 homepage = https://github.com/xw-yin/loon-cf-opt
-version = 1.8.1
+version = 1.8.2
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时生成并返回最优节点！ (完全本地实时合成，零延迟，免去一切缓存同步麻烦)
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=7, argument=[{uuid},{host},{path},{port},{protocol},{source_type},{isp},{node_count},{custom_source}], tag=CF优选节点中转
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=8, argument=[{uuid},{host},{path},{port},{protocol},{source_type},{isp},{node_count},{custom_source}], tag=CF优选节点中转
 
 [Argument]
 uuid = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
