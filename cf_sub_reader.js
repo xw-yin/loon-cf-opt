@@ -206,6 +206,19 @@ function getRawIp(ip) {
     return String(ip || '').replace(/^\[|\]$/g, '');
 }
 
+function getLoonCountryCode(ip) {
+    if (typeof $utils === 'undefined' || !$utils || typeof $utils.geoip !== 'function') {
+        return 'UNK';
+    }
+
+    try {
+        return normalizeCountryCode($utils.geoip(getRawIp(ip)));
+    } catch (e) {
+        console.log(`⚠️ [国家识别] Loon 内置 GeoIP 查询失败: ${getRawIp(ip)}`);
+        return 'UNK';
+    }
+}
+
 async function fetchCountryCode(ip) {
     const rawIp = getRawIp(ip);
     const encodedIp = encodeURIComponent(rawIp);
@@ -245,11 +258,23 @@ async function resolveCountryCodes(items) {
 
     if (unknownIps.length === 0) return items;
 
-    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过多源 GeoIP 接口补齐...`);
-    const codes = await Promise.all(unknownIps.map(ip => fetchCountryCode(ip)));
+    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过 Loon 内置 GeoIP 补齐...`);
+    const loonCountryMap = {};
+    unknownIps.forEach(ip => {
+        loonCountryMap[ip] = getLoonCountryCode(ip);
+    });
+
+    const fallbackIps = unknownIps.filter(ip => loonCountryMap[ip] === 'UNK');
+    if (fallbackIps.length > 0) {
+        console.log(`🌐 [国家识别] ${fallbackIps.length} 个 IP 无法使用 Loon 内置 GeoIP 识别，正在使用外部接口回退...`);
+    }
+    const fallbackCodes = await Promise.all(fallbackIps.map(ip => fetchCountryCode(ip)));
     const countryMap = {};
-    unknownIps.forEach((ip, idx) => {
-        countryMap[ip] = codes[idx];
+    unknownIps.forEach(ip => {
+        countryMap[ip] = loonCountryMap[ip];
+    });
+    fallbackIps.forEach((ip, idx) => {
+        countryMap[ip] = fallbackCodes[idx];
     });
 
     return items.map(item => createIpItem(
