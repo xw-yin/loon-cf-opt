@@ -171,54 +171,11 @@ function fetchUrl(url, timeout) {
     });
 }
 
-function normalizeCountryCode(country) {
-    const code = String(country || '').trim().toUpperCase();
-    return /^[A-Z]{2}$/.test(code) ? code : 'UNK';
-}
-
-function createIpItem(ip, country, label) {
+function createIpItem(ip, label) {
     return {
         ip: ip,
-        country: normalizeCountryCode(country),
         label: label
     };
-}
-
-function getRawIp(ip) {
-    return String(ip || '').replace(/^\[|\]$/g, '');
-}
-
-function getLoonCountryCode(ip) {
-    if (typeof $utils === 'undefined' || !$utils || typeof $utils.geoip !== 'function') {
-        return 'UNK';
-    }
-
-    try {
-        return normalizeCountryCode($utils.geoip(getRawIp(ip)));
-    } catch (e) {
-        console.log(`⚠️ [国家识别] Loon 内置 GeoIP 查询失败: ${getRawIp(ip)}`);
-        return 'UNK';
-    }
-}
-
-function resolveCountryCodes(items) {
-    const unknownIps = [...new Set(items
-        .filter(item => normalizeCountryCode(item.country) === 'UNK')
-        .map(item => item.ip))];
-
-    if (unknownIps.length === 0) return items;
-
-    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过 Loon 内置 GeoIP 补齐...`);
-    const countryMap = {};
-    unknownIps.forEach(ip => {
-        countryMap[ip] = getLoonCountryCode(ip);
-    });
-
-    return items.map(item => createIpItem(
-        item.ip,
-        normalizeCountryCode(item.country) === 'UNK' ? countryMap[item.ip] : item.country,
-        item.label
-    ));
 }
 
 function createNodeLink(ip, remarkStr) {
@@ -242,9 +199,8 @@ function createNodeLink(ip, remarkStr) {
 }
 
 async function appendNodes(nodeLinks, items) {
-    const resolvedItems = resolveCountryCodes(items);
-    resolvedItems.forEach(item => {
-        const nodeLink = createNodeLink(item.ip, `${item.country}-${item.label}`);
+    items.forEach(item => {
+        const nodeLink = createNodeLink(item.ip, `CF-${item.label}`);
         if (nodeLink) nodeLinks.push(nodeLink);
     });
 }
@@ -305,18 +261,16 @@ async function start() {
             lines.forEach(line => {
                 line = line.trim();
                 if (!line) return;
-                const parts = line.split('#');
-                const country = parts[1] ? parts[1].trim() : 'UNK';
                 
                 let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
                 if (ipv4Match) {
-                    pool.push(createIpItem(ipv4Match[0], country, ''));
+                    pool.push(ipv4Match[0]);
                     return;
                 }
                 
                 let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
                 if (ipv6Match) {
-                    pool.push(createIpItem(`[${ipv6Match[0]}]`, country, ''));
+                    pool.push(`[${ipv6Match[0]}]`);
                     return;
                 }
             });
@@ -333,7 +287,7 @@ async function start() {
             
             const ispMark = ISP_NAME_MAP[ISP] || "自定义";
             const modeName = SOURCE_TYPE === 'random' ? '随机' : '列表';
-            const items = selectedIPs.map((item, idx) => createIpItem(item.ip, item.country, `${ispMark}-${modeName}-${idx + 1}`));
+            const items = selectedIPs.map((ip, idx) => createIpItem(ip, `${ispMark}-${modeName}-${idx + 1}`));
             await appendNodes(nodeLinks, items);
 
         } else if (SOURCE_TYPE === 'random') {
@@ -362,7 +316,7 @@ async function start() {
                     const ips = extractIpsFromCidrText(text, NODE_COUNT);
                     ips.forEach((ip, idx) => {
                         const ispMark = ISP_NAME_MAP[type];
-                        items.push(createIpItem(ip, 'UNK', `${ispMark}-随机-${idx + 1}`));
+                        items.push(createIpItem(ip, `${ispMark}-随机-${idx + 1}`));
                     });
                 });
                 await appendNodes(nodeLinks, items);
@@ -382,7 +336,7 @@ async function start() {
                 
                 const ips = extractIpsFromCidrText(rawText, NODE_COUNT);
                 const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
-                const items = ips.map((ip, idx) => createIpItem(ip, 'UNK', `${ispMark}-随机-${idx + 1}`));
+                const items = ips.map((ip, idx) => createIpItem(ip, `${ispMark}-随机-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
             }
 
@@ -407,12 +361,12 @@ async function start() {
                     // 格式为 IP:PORT#COUNTRY，例如 102.215.228.162:443#DE
                     let parts = line.split('#');
                     let ipPort = parts[0].trim();
-                    let country = parts[1] ? parts[1].trim().toUpperCase() : 'UNK';
+                    let country = parts[1] ? parts[1].trim().toUpperCase() : '';
                     
                     let ip = ipPort.split(':')[0].trim();
                     let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
                     if (ipv4Match) {
-                        pool.push(createIpItem(ipv4Match[0], country, ''));
+                        pool.push({ ip: ipv4Match[0], country: country });
                     }
                 });
 
@@ -439,7 +393,7 @@ async function start() {
 
                 console.log(`📋 [干净优选] 提取模式: 其他，从 ${sortedPool.length} 个 IP 中提取前 ${selectedItems.length} 个（优先采用亚洲低延迟节点）`);
 
-                const items = selectedItems.map((item, idx) => createIpItem(item.ip, item.country, `其他-列表-${idx + 1}`));
+                const items = selectedItems.map((item, idx) => createIpItem(item.ip, `其他-列表-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
 
             } else {
@@ -488,7 +442,7 @@ async function start() {
                     }
                     
                     const ispMark = ISP_NAME_MAP[currentType] || currentType.toUpperCase();
-                    return createIpItem(ip, 'UNK', `${ispMark}-列表-${subIdx}`);
+                    return createIpItem(ip, `${ispMark}-列表-${subIdx}`);
                 });
                 await appendNodes(nodeLinks, items);
             }
