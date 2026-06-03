@@ -171,6 +171,29 @@ function fetchUrl(url, timeout) {
     });
 }
 
+function postJson(url, body, timeout) {
+    return new Promise((resolve) => {
+        const request = {
+            url: url,
+            policy: "DIRECT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(body)
+        };
+        if (timeout) request.timeout = timeout;
+
+        $httpClient.post(request, function(err, resp, data) {
+            if (!err && resp && resp.status === 200 && data) {
+                resolve(data);
+            } else {
+                console.log(`⚠️ [网络获取] 直连请求 GeoIP 接口失败: ${url}`);
+                resolve('');
+            }
+        });
+    });
+}
+
 function normalizeCountryCode(country) {
     const code = String(country || '').trim().toUpperCase();
     return /^[A-Z]{2}$/.test(code) ? code : 'UNK';
@@ -202,6 +225,30 @@ async function fetchCountryCode(ip) {
     }
 }
 
+async function fetchCountryCodesBatch(ips) {
+    const rawIps = ips.map(ip => getRawIp(ip));
+    const data = await postJson(
+        'http://ip-api.com/batch?fields=status,countryCode,query',
+        rawIps,
+        8
+    );
+    if (!data) return {};
+
+    try {
+        const results = JSON.parse(data);
+        const countryMap = {};
+        results.forEach(result => {
+            if (result && result.status === 'success') {
+                countryMap[result.query] = normalizeCountryCode(result.countryCode);
+            }
+        });
+        return countryMap;
+    } catch (e) {
+        console.log(`⚠️ [国家识别] 无法解析批量 GeoIP 查询结果。`);
+        return {};
+    }
+}
+
 async function resolveCountryCodes(items) {
     const unknownIps = [...new Set(items
         .filter(item => normalizeCountryCode(item.country) === 'UNK')
@@ -209,11 +256,16 @@ async function resolveCountryCodes(items) {
 
     if (unknownIps.length === 0) return items;
 
-    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过 GeoIP 接口补齐...`);
-    const codes = await Promise.all(unknownIps.map(ip => fetchCountryCode(ip)));
+    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过批量 GeoIP 接口补齐...`);
+    const batchCountryMap = await fetchCountryCodesBatch(unknownIps);
+    const fallbackIps = unknownIps.filter(ip => !batchCountryMap[getRawIp(ip)]);
+    const fallbackCodes = await Promise.all(fallbackIps.map(ip => fetchCountryCode(ip)));
     const countryMap = {};
-    unknownIps.forEach((ip, idx) => {
-        countryMap[ip] = codes[idx];
+    unknownIps.forEach(ip => {
+        countryMap[ip] = batchCountryMap[getRawIp(ip)] || 'UNK';
+    });
+    fallbackIps.forEach((ip, idx) => {
+        countryMap[ip] = fallbackCodes[idx];
     });
 
     return items.map(item => createIpItem(
