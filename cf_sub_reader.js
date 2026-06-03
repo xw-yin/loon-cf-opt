@@ -152,12 +152,15 @@ if (CUSTOM_SOURCE) {
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}****** (已脱敏)`);
 
 // ================= 网络请求 Promise 异步包装器 =================
-function fetchUrl(url) {
+function fetchUrl(url, timeout) {
     return new Promise((resolve) => {
-        $httpClient.get({
+        const request = {
             url: url,
             policy: "DIRECT" // 强制直连
-        }, function(err, resp, data) {
+        };
+        if (timeout) request.timeout = timeout;
+
+        $httpClient.get(request, function(err, resp, data) {
             if (!err && resp && resp.status === 200 && data) {
                 resolve(data);
             } else {
@@ -165,6 +168,86 @@ function fetchUrl(url) {
                 resolve('');
             }
         });
+    });
+}
+
+function normalizeCountryCode(country) {
+    const code = String(country || '').trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(code) ? code : 'UNK';
+}
+
+function createIpItem(ip, country, label) {
+    return {
+        ip: ip,
+        country: normalizeCountryCode(country),
+        label: label
+    };
+}
+
+function getRawIp(ip) {
+    return String(ip || '').replace(/^\[|\]$/g, '');
+}
+
+async function fetchCountryCode(ip) {
+    const rawIp = getRawIp(ip);
+    const data = await fetchUrl(`https://ipwho.is/${encodeURIComponent(rawIp)}`, 5);
+    if (!data) return 'UNK';
+
+    try {
+        const result = JSON.parse(data);
+        return normalizeCountryCode(result.country_code);
+    } catch (e) {
+        console.log(`⚠️ [国家识别] 无法解析 IP ${rawIp} 的国家查询结果。`);
+        return 'UNK';
+    }
+}
+
+async function resolveCountryCodes(items) {
+    const unknownIps = [...new Set(items
+        .filter(item => normalizeCountryCode(item.country) === 'UNK')
+        .map(item => item.ip))];
+
+    if (unknownIps.length === 0) return items;
+
+    console.log(`🌍 [国家识别] ${unknownIps.length} 个 IP 未标注国家，正在通过 GeoIP 接口补齐...`);
+    const codes = await Promise.all(unknownIps.map(ip => fetchCountryCode(ip)));
+    const countryMap = {};
+    unknownIps.forEach((ip, idx) => {
+        countryMap[ip] = codes[idx];
+    });
+
+    return items.map(item => createIpItem(
+        item.ip,
+        normalizeCountryCode(item.country) === 'UNK' ? countryMap[item.ip] : item.country,
+        item.label
+    ));
+}
+
+function createNodeLink(ip, remarkStr) {
+    const remark = encodeURIComponent(remarkStr);
+
+    if (PROTOCOL === 'vless') {
+        if (isTls) {
+            return `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+        }
+        return `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
+    }
+
+    if (PROTOCOL === 'trojan') {
+        if (isTls) {
+            return `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+        }
+        return `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+    }
+
+    return '';
+}
+
+async function appendNodes(nodeLinks, items) {
+    const resolvedItems = await resolveCountryCodes(items);
+    resolvedItems.forEach(item => {
+        const nodeLink = createNodeLink(item.ip, `${item.country}-${item.label}`);
+        if (nodeLink) nodeLinks.push(nodeLink);
     });
 }
 
@@ -224,16 +307,18 @@ async function start() {
             lines.forEach(line => {
                 line = line.trim();
                 if (!line) return;
+                const parts = line.split('#');
+                const country = parts[1] ? parts[1].trim() : 'UNK';
                 
                 let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
                 if (ipv4Match) {
-                    pool.push(ipv4Match[0]);
+                    pool.push(createIpItem(ipv4Match[0], country, ''));
                     return;
                 }
                 
                 let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
                 if (ipv6Match) {
-                    pool.push(`[${ipv6Match[0]}]`);
+                    pool.push(createIpItem(`[${ipv6Match[0]}]`, country, ''));
                     return;
                 }
             });
@@ -248,28 +333,10 @@ async function start() {
             // 截取前 NODE_COUNT 个节点
             let selectedIPs = pool.slice(0, NODE_COUNT);
             
-            selectedIPs.forEach((ip, idx) => {
-                const ispMark = ISP_NAME_MAP[ISP] || "自定义";
-                const modeName = SOURCE_TYPE === 'random' ? '随机' : '列表';
-                const remarkStr = `CF-${ispMark}-${modeName}-${idx + 1}`;
-                const remark = encodeURIComponent(remarkStr);
-
-                let nodeLink = '';
-                if (PROTOCOL === 'vless') {
-                    if (isTls) {
-                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
-                    } else {
-                        nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
-                    }
-                } else if (PROTOCOL === 'trojan') {
-                    if (isTls) {
-                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                    } else {
-                        nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                    }
-                }
-                if (nodeLink) nodeLinks.push(nodeLink);
-            });
+            const ispMark = ISP_NAME_MAP[ISP] || "自定义";
+            const modeName = SOURCE_TYPE === 'random' ? '随机' : '列表';
+            const items = selectedIPs.map((item, idx) => createIpItem(item.ip, item.country, `${ispMark}-${modeName}-${idx + 1}`));
+            await appendNodes(nodeLinks, items);
 
         } else if (SOURCE_TYPE === 'random') {
             // ================= 🎯 随机碰撞模式 =================
@@ -286,6 +353,7 @@ async function start() {
                 console.log(`📡 [网络请求] 三网大融合启动，并发拉取 4 大运营商官方网段...`);
                 const rawTexts = await Promise.all(urls.map(url => fetchUrl(url)));
                 
+                let items = [];
                 ispTypes.forEach((type, i) => {
                     const text = rawTexts[i];
                     if (!text) {
@@ -296,26 +364,10 @@ async function start() {
                     const ips = extractIpsFromCidrText(text, NODE_COUNT);
                     ips.forEach((ip, idx) => {
                         const ispMark = ISP_NAME_MAP[type];
-                        const remarkStr = `CF-${ispMark}-随机-${idx + 1}`;
-                        const remark = encodeURIComponent(remarkStr);
-                        
-                        let nodeLink = '';
-                        if (PROTOCOL === 'vless') {
-                            if (isTls) {
-                                nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
-                            } else {
-                                nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
-                            }
-                        } else if (PROTOCOL === 'trojan') {
-                            if (isTls) {
-                                nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                            } else {
-                                nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                            }
-                        }
-                        if (nodeLink) nodeLinks.push(nodeLink);
+                        items.push(createIpItem(ip, 'UNK', `${ispMark}-随机-${idx + 1}`));
                     });
                 });
+                await appendNodes(nodeLinks, items);
 
             } else {
                 // 🎯 【单运营商模式】
@@ -331,27 +383,9 @@ async function start() {
                 }
                 
                 const ips = extractIpsFromCidrText(rawText, NODE_COUNT);
-                ips.forEach((ip, idx) => {
-                    const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
-                    const remarkStr = `CF-${ispMark}-随机-${idx + 1}`;
-                    const remark = encodeURIComponent(remarkStr);
-
-                    let nodeLink = '';
-                    if (PROTOCOL === 'vless') {
-                        if (isTls) {
-                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
-                        } else {
-                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
-                        }
-                    } else if (PROTOCOL === 'trojan') {
-                        if (isTls) {
-                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                        } else {
-                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                        }
-                    }
-                    if (nodeLink) nodeLinks.push(nodeLink);
-                });
+                const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
+                const items = ips.map((ip, idx) => createIpItem(ip, 'UNK', `${ispMark}-随机-${idx + 1}`));
+                await appendNodes(nodeLinks, items);
             }
 
         } else {
@@ -380,7 +414,7 @@ async function start() {
                     let ip = ipPort.split(':')[0].trim();
                     let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
                     if (ipv4Match) {
-                        pool.push({ ip: ipv4Match[0], country: country });
+                        pool.push(createIpItem(ipv4Match[0], country, ''));
                     }
                 });
 
@@ -407,26 +441,8 @@ async function start() {
 
                 console.log(`📋 [干净优选] 提取模式: 其他，从 ${sortedPool.length} 个 IP 中提取前 ${selectedItems.length} 个（优先采用亚洲低延迟节点）`);
 
-                selectedItems.forEach((item, idx) => {
-                    const remarkStr = `CF-其他-列表-${idx + 1}`;
-                    const remark = encodeURIComponent(remarkStr);
-
-                    let nodeLink = '';
-                    if (PROTOCOL === 'vless') {
-                        if (isTls) {
-                            nodeLink = `vless://${UUID}@${item.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
-                        } else {
-                            nodeLink = `vless://${UUID}@${item.ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
-                        }
-                    } else if (PROTOCOL === 'trojan') {
-                        if (isTls) {
-                            nodeLink = `trojan://${UUID}@${item.ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                        } else {
-                            nodeLink = `trojan://${UUID}@${item.ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                        }
-                    }
-                    if (nodeLink) nodeLinks.push(nodeLink);
-                });
+                const items = selectedItems.map((item, idx) => createIpItem(item.ip, item.country, `其他-列表-${idx + 1}`));
+                await appendNodes(nodeLinks, items);
 
             } else {
                 // 其余运营商逻辑保持不变，采用原有的 vfarid 优选源进行分析
@@ -462,7 +478,7 @@ async function start() {
                 const bestIps = pool.slice(0, targetCount);
                 console.log(`📋 [干净优选] 提取模式: ${ISP === 'all' ? '全部(4倍截取)' : ISP}，成功获取前 ${bestIps.length} 个由专业测速排序好的存活 IP`);
 
-                bestIps.forEach((ip, idx) => {
+                const items = bestIps.map((ip, idx) => {
                     let currentType = ISP;
                     let subIdx = idx + 1;
                     
@@ -474,27 +490,9 @@ async function start() {
                     }
                     
                     const ispMark = ISP_NAME_MAP[currentType] || currentType.toUpperCase();
-                    
-                    // 列表模式下命名为 “列表” 而非 “随机”
-                    const remarkStr = `CF-${ispMark}-列表-${subIdx}`;
-                    const remark = encodeURIComponent(remarkStr);
-
-                    let nodeLink = '';
-                    if (PROTOCOL === 'vless') {
-                        if (isTls) {
-                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
-                        } else {
-                            nodeLink = `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
-                        }
-                    } else if (PROTOCOL === 'trojan') {
-                        if (isTls) {
-                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                        } else {
-                            nodeLink = `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
-                        }
-                    }
-                    if (nodeLink) nodeLinks.push(nodeLink);
+                    return createIpItem(ip, 'UNK', `${ispMark}-列表-${subIdx}`);
                 });
+                await appendNodes(nodeLinks, items);
             }
         }
 
