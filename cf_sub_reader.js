@@ -171,6 +171,165 @@ function fetchUrl(url, timeout) {
     });
 }
 
+// ================= 中国大陆优选 IP 获取 (含五级保底链路) =================
+async function fetchCleanIps(isp) {
+    let pool = [];
+
+    // 1. 第一级：尝试从 vps789 API 获取 (经过三网 24 小时监控测速)
+    try {
+        console.log(`📡 [网络获取] 第一级：正在拉取 vps789 优选 IP 数据...`);
+        const jsonText = await fetchUrl('https://vps789.com/public/sum/cfIpApi', 4000);
+        if (jsonText) {
+            const res = JSON.parse(jsonText);
+            if (res && res.code === 0 && res.data) {
+                let targetKey = 'AllAvg';
+                if (isp === 'ct') targetKey = 'CT';
+                else if (isp === 'cu') targetKey = 'CU';
+                else if (isp === 'cmcc') targetKey = 'CM';
+
+                const list = res.data[targetKey] || [];
+                list.forEach(item => {
+                    if (item && item.ip) {
+                        let ip = item.ip.trim();
+                        if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                            pool.push(ip);
+                        } else if (/^(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}$/.test(ip)) {
+                            pool.push(`[${ip}]`);
+                        }
+                    }
+                });
+                if (pool.length > 0) {
+                    console.log(`✅ [网络获取] 第一级成功：从 vps789 获取到 ${pool.length} 个 ${isp.toUpperCase()} 优选 IP`);
+                    return pool;
+                }
+            }
+        }
+    } catch (err) {
+        console.log(`⚠️ [网络获取] 第一级 vps789 接口获取或解析失败: ${err.message || err}`);
+    }
+
+    // 2. 第二级：尝试从 addressesapi.090227.xyz 获取
+    try {
+        let urls = [];
+        if (isp === 'ct') {
+            urls = ['https://addressesapi.090227.xyz/ct', 'https://addressesapi.090227.xyz/CloudFlareYes'];
+        } else if (isp === 'cmcc') {
+            urls = ['https://addressesapi.090227.xyz/cmcc', 'https://addressesapi.090227.xyz/CloudFlareYes'];
+        } else {
+            urls = ['https://addressesapi.090227.xyz/CloudFlareYes'];
+        }
+
+        console.log(`📡 [网络获取] 第二级：正在从 addressesapi.090227.xyz 拉取数据...`);
+        let rawText = '';
+        for (const url of urls) {
+            rawText = await fetchUrl(url, 4000);
+            if (rawText && !rawText.includes('Telegram') && rawText.trim().split('\n').length > 1) {
+                break;
+            }
+            rawText = '';
+        }
+
+        if (!rawText) {
+            rawText = await fetchUrl('https://addressesapi.090227.xyz/CloudFlareYes', 4000);
+        }
+
+        if (rawText) {
+            let lines = rawText.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || line.startsWith('#') || line.toLowerCase().includes('telegram') || line.toLowerCase().includes('unlock')) return;
+
+                if (isp !== 'cf' && isp !== 'all') {
+                    const lineUpper = line.toUpperCase();
+                    let isMatch = false;
+                    if (isp === 'ct' && (lineUpper.includes('#CT') || lineUpper.includes('TELECOM'))) isMatch = true;
+                    if (isp === 'cu' && (lineUpper.includes('#CU') || lineUpper.includes('UNICOM'))) isMatch = true;
+                    if (isp === 'cmcc' && (lineUpper.includes('#CM') || lineUpper.includes('MOBILE'))) isMatch = true;
+                    if (!isMatch) return;
+                }
+
+                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                if (ipv4Match) {
+                    pool.push(ipv4Match[0]);
+                    return;
+                }
+                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                if (ipv6Match) {
+                    pool.push(`[${ipv6Match[0]}]`);
+                }
+            });
+
+            if (pool.length === 0) {
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (!line || line.startsWith('#') || line.toLowerCase().includes('telegram')) return;
+                    let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                    if (ipv4Match) pool.push(ipv4Match[0]);
+                    let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                    if (ipv6Match) pool.push(`[${ipv6Match[0]}]`);
+                });
+            }
+
+            if (pool.length > 0) {
+                console.log(`✅ [网络获取] 第二级成功：从 090227.xyz 获取到 ${pool.length} 个 IP`);
+                return pool;
+            }
+        }
+    } catch (err) {
+        console.log(`⚠️ [网络获取] 第二级 addressesapi 接口失败: ${err.message || err}`);
+    }
+
+    // 3. 第三级：cmliu 的备份 addressesapi.txt
+    try {
+        console.log(`📡 [网络获取] 第三级：正在拉取 cmliu 备份优选 IP...`);
+        const rawText = await fetchUrl('https://ghproxy.net/https://raw.githubusercontent.com/cmliu/WorkerVless2sub/main/addressesapi.txt', 4000);
+        if (rawText) {
+            let lines = rawText.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || line.startsWith('#')) return;
+                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                if (ipv4Match) pool.push(ipv4Match[0]);
+                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                if (ipv6Match) pool.push(`[${ipv6Match[0]}]`);
+            });
+            if (pool.length > 0) {
+                console.log(`✅ [网络获取] 第三级成功：获取到 ${pool.length} 个备份 IP`);
+                return pool;
+            }
+        }
+    } catch (err) {
+        console.log(`⚠️ [网络获取] 第三级 cmliu 备份接口失败: ${err.message || err}`);
+    }
+
+    // 4. 第四级：原有的 vfarid 优选源
+    try {
+        console.log(`📡 [网络获取] 第四级：正在拉取 vfarid 优选源...`);
+        const rawText = await fetchUrl('https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt', 4000);
+        if (rawText) {
+            let lines = rawText.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
+                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                if (ipv4Match) pool.push(ipv4Match[0]);
+                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
+                if (ipv6Match) pool.push(`[${ipv6Match[0]}]`);
+            });
+            if (pool.length > 0) {
+                console.log(`✅ [网络获取] 第四级成功：从 vfarid 获取到 ${pool.length} 个 IP`);
+                return pool;
+            }
+        }
+    } catch (err) {
+        console.log(`⚠️ [网络获取] 第四级 vfarid 接口失败: ${err.message || err}`);
+    }
+
+    // 5. 第五级：静态硬编码兜底 IP
+    console.log(`⚠️ [网络获取] 所有接口拉取失败，启用第五级静态硬编码 IP 兜底`);
+    return ['104.16.0.1', '104.17.0.1', '104.18.0.1', '104.19.0.1', '198.41.211.205', '198.41.222.252'];
+}
+
 function createIpItem(ip, label) {
     return {
         ip: ip,
@@ -396,54 +555,29 @@ async function start() {
                 const items = selectedItems.map((item, idx) => createIpItem(item.ip, `其他-列表-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
 
-            } else {
-                // 其余运营商逻辑保持不变，采用原有的 vfarid 优选源进行分析
-                const url = 'https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt';
-                const rawText = await fetchUrl(url);
-                if (!rawText) {
-                    console.log("❌ [网络请求] 拉取已测速优选列表为空，流程阻断！");
-                    returnMockResponse("");
-                    return;
-                }
-
-                let lines = rawText.split('\n');
-                let pool = [];
-                lines.forEach(line => {
-                    line = line.trim();
-                    if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
-                    
-                    let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                    if (ipv4Match) {
-                        pool.push(ipv4Match[0]);
-                        return;
-                    }
-                    
-                    let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                    if (ipv6Match) {
-                        pool.push(`[${ipv6Match[0]}]`);
-                        return;
-                    }
-                });
+            } else if (ISP === 'all') {
+                // 三网大融合列表模式：电信、联通、移动、官方并发获取优选 IP
+                console.log("📋 [干净优选] 三网大融合列表模式启动，并发拉取各运营商优选 IP...");
+                const ispTypes = ['cf', 'ct', 'cu', 'cmcc'];
+                const pools = await Promise.all(ispTypes.map(type => fetchCleanIps(type)));
                 
-                // 智能节点提取：如果选了 all 模式，截取大池子前 NODE_COUNT * 4 个最顶级的优选 IP 以输出 40 个节点！
-                const targetCount = (ISP === 'all') ? (NODE_COUNT * 4) : NODE_COUNT;
-                const bestIps = pool.slice(0, targetCount);
-                console.log(`📋 [干净优选] 提取模式: ${ISP === 'all' ? '全部(4倍截取)' : ISP}，成功获取前 ${bestIps.length} 个由专业测速排序好的存活 IP`);
-
-                const items = bestIps.map((ip, idx) => {
-                    let currentType = ISP;
-                    let subIdx = idx + 1;
-                    
-                    if (ISP === 'all') {
-                        const ispTypes = ['cf', 'ct', 'cu', 'cmcc'];
-                        const typeIndex = Math.floor(idx / NODE_COUNT);
-                        currentType = ispTypes[Math.min(typeIndex, 3)];
-                        subIdx = (idx % NODE_COUNT) + 1;
-                    }
-                    
-                    const ispMark = ISP_NAME_MAP[currentType] || currentType.toUpperCase();
-                    return createIpItem(ip, `${ispMark}-列表-${subIdx}`);
+                let items = [];
+                ispTypes.forEach((type, i) => {
+                    const pool = pools[i];
+                    const selected = pool.slice(0, NODE_COUNT);
+                    selected.forEach((ip, idx) => {
+                        const ispMark = ISP_NAME_MAP[type];
+                        items.push(createIpItem(ip, `${ispMark}-列表-${idx + 1}`));
+                    });
                 });
+                await appendNodes(nodeLinks, items);
+            } else {
+                // 单运营商列表模式：直接拉取该运营商的优选 IP
+                console.log(`📋 [干净优选] 运营商 [${ISP_NAME_MAP[ISP] || ISP.toUpperCase()}] 列表模式启动...`);
+                const pool = await fetchCleanIps(ISP);
+                const selected = pool.slice(0, NODE_COUNT);
+                const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
+                const items = selected.map((ip, idx) => createIpItem(ip, `${ispMark}-列表-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
             }
         }
