@@ -123,7 +123,7 @@ const PATH = String(config.PATH || '/').trim();
 const PORT = Number(String(config.PORT || '').trim() || 443);
 const NODE_COUNT = Number(String(config.NODE_COUNT || '').trim() || 10);
 
-const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096];
+const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096, 9443];
 const isTls = TLS_PORTS.includes(PORT);
 
 let PROTOCOL = String(config.PROTOCOL || '').trim().toLowerCase();
@@ -171,13 +171,165 @@ function fetchUrl(url, timeout) {
     });
 }
 
+// ================= 网络请求 Promise 异步包装器 (带 Headers) =================
+function fetchUrlWithHeaders(url, headers, timeout) {
+    return new Promise((resolve) => {
+        const request = {
+            url: url,
+            policy: "DIRECT", // 强制直连
+            headers: headers || {}
+        };
+        if (timeout) request.timeout = timeout;
+
+        $httpClient.get(request, function(err, resp, data) {
+            if (!err && resp && resp.status === 200 && data) {
+                resolve(data);
+            } else {
+                console.log(`⚠️ [网络获取] 失败: ${url}`);
+                resolve('');
+            }
+        });
+    });
+}
+
+// ================= Base64 解码辅助函数 =================
+function base64Decode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) {
+        str += '=';
+    }
+    if (typeof atob === 'function') {
+        try {
+            return atob(str);
+        } catch (e) {}
+    }
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let buffer = '';
+    let bits = 0;
+    let value = 0;
+    for (let i = 0; i < str.length; i++) {
+        const c = str.charAt(i);
+        const idx = chars.indexOf(c);
+        if (idx !== -1) {
+            value = (value << 6) | idx;
+            bits += 6;
+            if (bits >= 8) {
+                bits -= 8;
+                const byte = (value >>> bits) & 0xff;
+                buffer += String.fromCharCode(byte);
+            }
+        }
+    }
+    try {
+        return decodeURIComponent(escape(buffer));
+    } catch (e) {
+        return buffer;
+    }
+}
+
+// ================= IP 行解析辅助函数 =================
+function parseIpLine(line, defaultLabel) {
+    line = line.trim();
+    if (!line) return null;
+    
+    if (line.includes('Telegram') || line.includes('telegram') || line.includes('unlock') || line.includes('Join')) {
+        return null;
+    }
+    
+    let rest = line;
+    let label = defaultLabel || '优选';
+    
+    if (rest.includes('://')) {
+        const atIdx = rest.indexOf('@');
+        if (atIdx !== -1) {
+            rest = rest.substring(atIdx + 1);
+        }
+    }
+    
+    const hashIdx = rest.indexOf('#');
+    if (hashIdx !== -1) {
+        label = decodeURIComponent(rest.substring(hashIdx + 1)).trim();
+        rest = rest.substring(0, hashIdx);
+    }
+    
+    const qIdx = rest.indexOf('?');
+    if (qIdx !== -1) {
+        rest = rest.substring(0, qIdx).trim();
+    }
+    
+    rest = rest.trim();
+    
+    let ip = rest;
+    let port = PORT.toString();
+    
+    if (rest.startsWith('[') && rest.includes(']')) {
+        const rBraceIdx = rest.indexOf(']');
+        ip = rest.substring(0, rBraceIdx + 1);
+        const afterBrace = rest.substring(rBraceIdx + 1);
+        if (afterBrace.startsWith(':')) {
+            port = afterBrace.substring(1).trim();
+        }
+    } else if (rest.includes(':')) {
+        const colons = rest.split(':').length - 1;
+        if (colons === 1) {
+            const parts = rest.split(':');
+            ip = parts[0];
+            port = parts[1];
+        } else {
+            ip = `[${rest}]`;
+            port = PORT.toString();
+        }
+    }
+    
+    const cleanIp = ip.replace(/[\[\]]/g, '');
+    const isIpv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(cleanIp);
+    const isIpv6 = /^[a-fA-F0-9:]+$/.test(cleanIp);
+    
+    if (!isIpv4 && !isIpv6) return null;
+    
+    return {
+        ip: ip,
+        port: port,
+        label: label
+    };
+}
+
 // ================= 中国大陆优选 IP 获取 (含五级保底链路) =================
 async function fetchCleanIps(isp) {
     let pool = [];
 
-    // 1. 第一级：尝试从 vps789 API 获取 (经过三网 24 小时监控测速)
+    // 1. 第一级：尝试从 sub.cmliussss.net 获取反代优选 IP (针对中国运营商特别优化)
     try {
-        console.log(`📡 [网络获取] 第一级：正在拉取 vps789 优选 IP 数据...`);
+        console.log(`📡 [网络获取] 第一级：正在从 sub.cmliussss.net 拉取 ${isp.toUpperCase()} 反代优选 IP...`);
+        const paramIsp = { 'ct': 'ct', 'cu': 'cu', 'cmcc': 'cmcc', 'cf': 'cf' }[isp] || 'cf';
+        const url = `https://sub.cmliussss.net/sub?host=example.com&uuid=00000000-0000-4000-8000-000000000000&cnIspCode=${paramIsp}`;
+        const headers = {
+            'User-Agent': 'v2rayN/edgetunnel (https://github.com/cmliu/edgetunnel)'
+        };
+        const base64Data = await fetchUrlWithHeaders(url, headers, 4000);
+        if (base64Data) {
+            const decoded = base64Decode(base64Data);
+            if (decoded && !decoded.includes('不再支持旧版')) {
+                const lines = decoded.split(/\r?\n/);
+                lines.forEach(line => {
+                    const item = parseIpLine(line, isp.toUpperCase());
+                    if (item) {
+                        pool.push(item);
+                    }
+                });
+                if (pool.length > 0) {
+                    console.log(`✅ [网络获取] 第一级成功：从 sub.cmliussss.net 获取到 ${pool.length} 个 ${isp.toUpperCase()} 反代优选 IP`);
+                    return pool;
+                }
+            }
+        }
+    } catch (err) {
+        console.log(`⚠️ [网络获取] 第一级 sub.cmliussss.net 获取或解析失败: ${err.message || err}`);
+    }
+
+    // 2. 第二级：尝试从 vps789 API 获取 (经过三网 24 小时监控测速)
+    try {
+        console.log(`📡 [网络获取] 第二级：正在拉取 vps789 优选 IP 数据...`);
         const jsonText = await fetchUrl('https://vps789.com/public/sum/cfIpApi', 4000);
         if (jsonText) {
             const res = JSON.parse(jsonText);
@@ -190,25 +342,23 @@ async function fetchCleanIps(isp) {
                 const list = res.data[targetKey] || [];
                 list.forEach(item => {
                     if (item && item.ip) {
-                        let ip = item.ip.trim();
-                        if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
-                            pool.push(ip);
-                        } else if (/^(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}$/.test(ip)) {
-                            pool.push(`[${ip}]`);
+                        const parsed = parseIpLine(item.ip, isp.toUpperCase());
+                        if (parsed) {
+                            pool.push(parsed);
                         }
                     }
                 });
                 if (pool.length > 0) {
-                    console.log(`✅ [网络获取] 第一级成功：从 vps789 获取到 ${pool.length} 个 ${isp.toUpperCase()} 优选 IP`);
+                    console.log(`✅ [网络获取] 第二级成功：从 vps789 获取到 ${pool.length} 个 ${isp.toUpperCase()} 优选 IP`);
                     return pool;
                 }
             }
         }
     } catch (err) {
-        console.log(`⚠️ [网络获取] 第一级 vps789 接口获取或解析失败: ${err.message || err}`);
+        console.log(`⚠️ [网络获取] 第二级 vps789 接口获取或解析失败: ${err.message || err}`);
     }
 
-    // 2. 第二级：尝试从 addressesapi.090227.xyz 获取
+    // 3. 第三级：尝试从 addressesapi.090227.xyz 获取
     try {
         let urls = [];
         if (isp === 'ct') {
@@ -219,7 +369,7 @@ async function fetchCleanIps(isp) {
             urls = ['https://addressesapi.090227.xyz/CloudFlareYes'];
         }
 
-        console.log(`📡 [网络获取] 第二级：正在从 addressesapi.090227.xyz 拉取数据...`);
+        console.log(`📡 [网络获取] 第三级：正在从 addressesapi.090227.xyz 拉取数据...`);
         let rawText = '';
         for (const url of urls) {
             rawText = await fetchUrl(url, 4000);
@@ -237,8 +387,8 @@ async function fetchCleanIps(isp) {
             let lines = rawText.split('\n');
             lines.forEach(line => {
                 line = line.trim();
-                if (!line || line.startsWith('#') || line.toLowerCase().includes('telegram') || line.toLowerCase().includes('unlock')) return;
-
+                if (!line) return;
+                
                 if (isp !== 'cf' && isp !== 'all') {
                     const lineUpper = line.toUpperCase();
                     let isMatch = false;
@@ -248,110 +398,103 @@ async function fetchCleanIps(isp) {
                     if (!isMatch) return;
                 }
 
-                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                if (ipv4Match) {
-                    pool.push(ipv4Match[0]);
-                    return;
-                }
-                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                if (ipv6Match) {
-                    pool.push(`[${ipv6Match[0]}]`);
+                const parsed = parseIpLine(line, isp.toUpperCase());
+                if (parsed) {
+                    pool.push(parsed);
                 }
             });
 
             if (pool.length === 0) {
                 lines.forEach(line => {
-                    line = line.trim();
-                    if (!line || line.startsWith('#') || line.toLowerCase().includes('telegram')) return;
-                    let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                    if (ipv4Match) pool.push(ipv4Match[0]);
-                    let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                    if (ipv6Match) pool.push(`[${ipv6Match[0]}]`);
+                    const parsed = parseIpLine(line, isp.toUpperCase());
+                    if (parsed) pool.push(parsed);
                 });
             }
 
             if (pool.length > 0) {
-                console.log(`✅ [网络获取] 第二级成功：从 090227.xyz 获取到 ${pool.length} 个 IP`);
+                console.log(`✅ [网络获取] 第三级成功：从 090227.xyz 获取到 ${pool.length} 个 IP`);
                 return pool;
             }
         }
     } catch (err) {
-        console.log(`⚠️ [网络获取] 第二级 addressesapi 接口失败: ${err.message || err}`);
+        console.log(`⚠️ [网络获取] 第三级 addressesapi 接口失败: ${err.message || err}`);
     }
 
-    // 3. 第三级：cmliu 的备份 addressesapi.txt
+    // 4. 第四级：cmliu 的备份 addressesapi.txt
     try {
-        console.log(`📡 [网络获取] 第三级：正在拉取 cmliu 备份优选 IP...`);
+        console.log(`📡 [网络获取] 第四级：正在拉取 cmliu 备份优选 IP...`);
         const rawText = await fetchUrl('https://ghproxy.net/https://raw.githubusercontent.com/cmliu/WorkerVless2sub/main/addressesapi.txt', 4000);
         if (rawText) {
             let lines = rawText.split('\n');
             lines.forEach(line => {
-                line = line.trim();
-                if (!line || line.startsWith('#')) return;
-                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                if (ipv4Match) pool.push(ipv4Match[0]);
-                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                if (ipv6Match) pool.push(`[${ipv6Match[0]}]`);
+                const parsed = parseIpLine(line, isp.toUpperCase());
+                if (parsed) pool.push(parsed);
             });
             if (pool.length > 0) {
-                console.log(`✅ [网络获取] 第三级成功：获取到 ${pool.length} 个备份 IP`);
+                console.log(`✅ [网络获取] 第四级成功：获取到 ${pool.length} 个备份 IP`);
                 return pool;
             }
         }
     } catch (err) {
-        console.log(`⚠️ [网络获取] 第三级 cmliu 备份接口失败: ${err.message || err}`);
+        console.log(`⚠️ [网络获取] 第四级 cmliu 备份接口失败: ${err.message || err}`);
     }
 
-    // 4. 第四级：原有的 vfarid 优选源
+    // 5. 第五级：原有的 vfarid 优选源
     try {
-        console.log(`📡 [网络获取] 第四级：正在拉取 vfarid 优选源...`);
+        console.log(`📡 [网络获取] 第五级：正在拉取 vfarid 优选源...`);
         const rawText = await fetchUrl('https://ghproxy.net/https://raw.githubusercontent.com/vfarid/cf-clean-ips/main/list.txt', 4000);
         if (rawText) {
             let lines = rawText.split('\n');
             lines.forEach(line => {
-                line = line.trim();
-                if (!line || line.startsWith('#') || line.toLowerCase().includes('update') || line.toLowerCase().includes('ip')) return;
-                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                if (ipv4Match) pool.push(ipv4Match[0]);
-                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                if (ipv6Match) pool.push(`[${ipv6Match[0]}]`);
+                const parsed = parseIpLine(line, isp.toUpperCase());
+                if (parsed) pool.push(parsed);
             });
             if (pool.length > 0) {
-                console.log(`✅ [网络获取] 第四级成功：从 vfarid 获取到 ${pool.length} 个 IP`);
+                console.log(`✅ [网络获取] 第五级成功：从 vfarid 获取到 ${pool.length} 个 IP`);
                 return pool;
             }
         }
     } catch (err) {
-        console.log(`⚠️ [网络获取] 第四级 vfarid 接口失败: ${err.message || err}`);
+        console.log(`⚠️ [网络获取] 第五级 vfarid 接口失败: ${err.message || err}`);
     }
 
-    // 5. 第五级：静态硬编码兜底 IP
-    console.log(`⚠️ [网络获取] 所有接口拉取失败，启用第五级静态硬编码 IP 兜底`);
-    return ['104.16.0.1', '104.17.0.1', '104.18.0.1', '104.19.0.1', '198.41.211.205', '198.41.222.252'];
+    // 6. 第六级：静态硬编码兜底 IP
+    console.log(`⚠️ [网络获取] 所有接口拉取失败，启用第六级静态硬编码 IP 兜底`);
+    return [
+        { ip: '104.16.0.1', port: PORT.toString(), label: '兜底' },
+        { ip: '104.17.0.1', port: PORT.toString(), label: '兜底' },
+        { ip: '104.18.0.1', port: PORT.toString(), label: '兜底' },
+        { ip: '104.19.0.1', port: PORT.toString(), label: '兜底' },
+        { ip: '198.41.211.205', port: PORT.toString(), label: '兜底' },
+        { ip: '198.41.222.252', port: PORT.toString(), label: '兜底' }
+    ];
 }
 
-function createIpItem(ip, label) {
+function createIpItem(ip, port, label) {
     return {
         ip: ip,
+        port: port,
         label: label
     };
 }
 
-function createNodeLink(ip, remarkStr) {
+function createNodeLink(ip, port, remarkStr) {
     const remark = encodeURIComponent(remarkStr);
+    const connPort = port || PORT;
+    const connTls = TLS_PORTS.includes(Number(connPort));
 
     if (PROTOCOL === 'vless') {
-        if (isTls) {
-            return `vless://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
+        if (connTls) {
+            return `vless://${UUID}@${ip}:${connPort}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none&fp=chrome#${remark}`;
         }
-        return `vless://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
+        return `vless://${UUID}@${ip}:${connPort}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}&encryption=none#${remark}`;
     }
 
     if (PROTOCOL === 'trojan') {
-        if (isTls) {
-            return `trojan://${UUID}@${ip}:${PORT}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+        if (connTls) {
+            return `trojan://${UUID}@${ip}:${connPort}?security=tls&type=ws&host=${HOST}&sni=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
         }
-        return `trojan://${UUID}@${ip}:${PORT}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
+        return `trojan://${UUID}@${ip}:${connPort}?security=none&type=ws&host=${HOST}&path=${encodeURIComponent(PATH)}#${remark}`;
     }
 
     return '';
@@ -359,7 +502,7 @@ function createNodeLink(ip, remarkStr) {
 
 async function appendNodes(nodeLinks, items) {
     items.forEach(item => {
-        const nodeLink = createNodeLink(item.ip, `CF-${item.label}`);
+        const nodeLink = createNodeLink(item.ip, item.port, `CF-${item.label}`);
         if (nodeLink) nodeLinks.push(nodeLink);
     });
 }
@@ -418,19 +561,9 @@ async function start() {
             let lines = rawText.split(/[,\r\n]+/);
             let pool = [];
             lines.forEach(line => {
-                line = line.trim();
-                if (!line) return;
-                
-                let ipv4Match = line.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                if (ipv4Match) {
-                    pool.push(ipv4Match[0]);
-                    return;
-                }
-                
-                let ipv6Match = line.match(/\b(?:[a-fA-F0-9]{1,4}:){2,7}[a-fA-F0-9]{1,4}\b/);
-                if (ipv6Match) {
-                    pool.push(`[${ipv6Match[0]}]`);
-                    return;
+                const item = parseIpLine(line, '自定义');
+                if (item) {
+                    pool.push(item);
                 }
             });
 
@@ -442,11 +575,11 @@ async function start() {
             }
 
             // 截取前 NODE_COUNT 个节点
-            let selectedIPs = pool.slice(0, NODE_COUNT);
+            let selectedItems = pool.slice(0, NODE_COUNT);
             
             const ispMark = ISP_NAME_MAP[ISP] || "自定义";
             const modeName = SOURCE_TYPE === 'random' ? '随机' : '列表';
-            const items = selectedIPs.map((ip, idx) => createIpItem(ip, `${ispMark}-${modeName}-${idx + 1}`));
+            const items = selectedItems.map((item, idx) => createIpItem(item.ip, item.port, `${ispMark}-${modeName}-${idx + 1}`));
             await appendNodes(nodeLinks, items);
 
         } else if (SOURCE_TYPE === 'random') {
@@ -475,7 +608,7 @@ async function start() {
                     const ips = extractIpsFromCidrText(text, NODE_COUNT);
                     ips.forEach((ip, idx) => {
                         const ispMark = ISP_NAME_MAP[type];
-                        items.push(createIpItem(ip, `${ispMark}-随机-${idx + 1}`));
+                        items.push(createIpItem(ip, PORT.toString(), `${ispMark}-随机-${idx + 1}`));
                     });
                 });
                 await appendNodes(nodeLinks, items);
@@ -495,7 +628,7 @@ async function start() {
                 
                 const ips = extractIpsFromCidrText(rawText, NODE_COUNT);
                 const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
-                const items = ips.map((ip, idx) => createIpItem(ip, `${ispMark}-随机-${idx + 1}`));
+                const items = ips.map((ip, idx) => createIpItem(ip, PORT.toString(), `${ispMark}-随机-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
             }
 
@@ -514,18 +647,9 @@ async function start() {
                 let lines = rawText.split('\n');
                 let pool = [];
                 lines.forEach(line => {
-                    line = line.trim();
-                    if (!line || line.startsWith('#')) return;
-                    
-                    // 格式为 IP:PORT#COUNTRY，例如 102.215.228.162:443#DE
-                    let parts = line.split('#');
-                    let ipPort = parts[0].trim();
-                    let country = parts[1] ? parts[1].trim().toUpperCase() : '';
-                    
-                    let ip = ipPort.split(':')[0].trim();
-                    let ipv4Match = ip.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
-                    if (ipv4Match) {
-                        pool.push({ ip: ipv4Match[0], country: country });
+                    const item = parseIpLine(line, '其他');
+                    if (item) {
+                        pool.push({ ip: item.ip, port: item.port, country: item.label, label: item.label });
                     }
                 });
 
@@ -540,7 +664,7 @@ async function start() {
                 
                 let sortedPool = [...asianPool, ...otherPool];
                 if (sortedPool.length === 0) {
-                    console.log("❌ [解析失败] 提取的 IP 列表为空，无法生成任何节点。");
+                    console.log("❌ [解析失败] 提取 of IP 列表为空，无法生成任何节点。");
                     returnMockResponse("");
                     return;
                 }
@@ -552,7 +676,7 @@ async function start() {
 
                 console.log(`📋 [干净优选] 提取模式: 其他，从 ${sortedPool.length} 个 IP 中提取前 ${selectedItems.length} 个（优先采用亚洲低延迟节点）`);
 
-                const items = selectedItems.map((item, idx) => createIpItem(item.ip, `其他-列表-${idx + 1}`));
+                const items = selectedItems.map((item, idx) => createIpItem(item.ip, item.port, `其他-列表-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
 
             } else if (ISP === 'all') {
@@ -565,9 +689,9 @@ async function start() {
                 ispTypes.forEach((type, i) => {
                     const pool = pools[i];
                     const selected = pool.slice(0, NODE_COUNT);
-                    selected.forEach((ip, idx) => {
+                    selected.forEach((item, idx) => {
                         const ispMark = ISP_NAME_MAP[type];
-                        items.push(createIpItem(ip, `${ispMark}-列表-${idx + 1}`));
+                        items.push(createIpItem(item.ip, item.port, `${ispMark}-${item.label}-${idx + 1}`));
                     });
                 });
                 await appendNodes(nodeLinks, items);
@@ -577,7 +701,7 @@ async function start() {
                 const pool = await fetchCleanIps(ISP);
                 const selected = pool.slice(0, NODE_COUNT);
                 const ispMark = ISP_NAME_MAP[ISP] || ISP.toUpperCase();
-                const items = selected.map((ip, idx) => createIpItem(ip, `${ispMark}-列表-${idx + 1}`));
+                const items = selected.map((item, idx) => createIpItem(item.ip, item.port, `${ispMark}-${item.label}-${idx + 1}`));
                 await appendNodes(nodeLinks, items);
             }
         }
