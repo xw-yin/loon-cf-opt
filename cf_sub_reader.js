@@ -634,6 +634,35 @@ async function start() {
 
         } else {
             // ================= 📋 每日已测速优选列表模式 =================
+            // 优先检查 BoxJS 本地测速缓存，如果存在则直接使用本地优选节点
+            let cachedIps = '';
+            if (typeof $persistentStore !== 'undefined' && $persistentStore) {
+                cachedIps = $persistentStore.read("@CF_SPEEDTEST.cf_preferred_ips") || $persistentStore.read("cf_preferred_ips") || '';
+            }
+
+            if (cachedIps && cachedIps.trim()) {
+                console.log("🚀 [本地优选] 检测到 BoxJS 本地测速缓存，优先使用本地优选节点！");
+                let lines = cachedIps.split(/[\r\n]+/);
+                let pool = [];
+                lines.forEach(line => {
+                    const item = parseIpLine(line, '本地优选');
+                    if (item) pool.push(item);
+                });
+
+                if (pool.length > 0) {
+                    let selected = pool.slice(0, NODE_COUNT);
+                    const items = selected.map((item, idx) => createIpItem(item.ip, item.port, `${item.label}-${idx + 1}`));
+                    await appendNodes(nodeLinks, items);
+
+                    if (nodeLinks.length > 0) {
+                        const resultNodes = nodeLinks.join('\n');
+                        console.log(`🎉 [节点合成] 成功合成 ${nodeLinks.length} 个本地优选缓存节点！\n==== 合成节点列表 ====\n${resultNodes}\n======================`);
+                        returnMockResponse(resultNodes);
+                        return;
+                    }
+                }
+            }
+
             if (ISP === 'other') {
                 // 使用用户指定的超大优质优选 IP 源，支持自适应中国大陆低延迟亚洲节点（HK/TW/JP/SG/KR）优先排布！
                 const url = 'https://zip.cm.edu.kg/all.txt';
