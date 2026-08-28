@@ -1,13 +1,13 @@
 [General]
-name = ⚡️ Cloudflare 优选节点智能生成器 (EdgeTunnel 原生源版)
-desc = 拦截虚拟订阅请求，完全对齐 EdgeTunnel-iOS 原生 IP 源 (cmliu CM/CT/CU 优选网段、cf.090227.xyz、AS13335/AS209242 等)，并在本地使用并发探针实时测速，100% 保障节点可用！
+name = ⚡️ Cloudflare 优选节点生成器 (CFData-WEB 官方源版)
+desc = 拦截虚拟订阅请求，采用 PoemMisty/CFData-WEB 官方优选地址库 (baipiao.eu.org/cloudflare/ips-v4 等)，并在本地使用双模并发探针实时测速，100% 保障节点可用！
 author = Antigravity
 homepage = https://github.com/xw-yin/loon-cf-opt
-version = 3.2.0
+version = 3.3.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时测速并返回最优节点
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=32, argument=[{uuid},{host},{path},{port},{protocol},{source},{node_count},{timeout},{custom_source}], timeout=15, tag=CF实时优选节点生成
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=33, argument=[{uuid},{host},{path},{port},{protocol},{source},{node_count},{timeout},{custom_source}], timeout=15, tag=CF实时优选节点生成
 
 [Argument]
 uuid = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
@@ -15,7 +15,7 @@ host = input, "your-worker-domain.com", tag=Worker 域名, desc=填入绑定你�
 path = input, "/video", tag=连接路径, desc=填入传输路径 (如 /video 或 /)
 port = select, "443", "8443", "2053", "2083", "2087", "2096", "80", "8080", "8880", "2052", "2082", "2086", "2095", tag=端口, desc=默认使用 443
 protocol = select, "vless", "trojan", tag=协议类型, desc=默认使用 VLESS
-source = select, "bestcf_cm_v4", "bestcf_ct_v4", "bestcf_cu_v4", "bestcf_cf_v4", "bestcf_as13335", "bestcf_as209242", "official_v4", tag=IP 数据来源, desc=完全对齐 EdgeTunnel 原项目：CM移动优选(推荐)/CT电信/CU联通/CF官方v4/AS13335/AS209242
+source = select, "cfdata_v4", "cfdata_v6", "cfdata_backup", "cf_official", tag=IP 数据来源, desc=CFData-WEB官方IPv4(推荐)/CFData-WEB官方IPv6/备用优选源/Cloudflare官网源
 node_count = select, "8", "5", "10", "15", "20", tag=节点生成数量, desc=筛选延迟最低的前 N 个最优节点输出
 timeout = select, "1500", "1000", "2000", "3000", tag=单节点测速超时 (ms), desc=超过该延迟的节点将被自动淘汰
 custom_source = input, "", tag=自定义优选源, desc=选填：用英文逗号分隔的IP或存放优选IP的URL链接

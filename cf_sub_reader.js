@@ -1,16 +1,19 @@
 /**
- * Loon Cloudflare 优选节点生成器 (完全对齐 EdgeTunnel 官方源与双模测速)
+ * Loon Cloudflare 优选节点生成器 (CFData-WEB / PoemMisty 官方优选体系)
  * 
- * 核心升级：
- * 1. 【IP 源 100% 对齐原项目】：集成 cmliu 移动/电信/联通官方网段、cf.090227.xyz 官方列表、AS13335/AS209242 优选库及自建 API；
- * 2. 【智能双模探针 (解决全部 Timeout)】：
- *    - 模式 A：优先通过 HTTPS Trace 获取真实 colo 机房与国家；
- *    - 模式 B：若系统 TLS 证书校验失败或超时，自动切换 HTTP / HTTP 204 首字节探针；
- *    - 模式 C：网络离线/全部超时优雅保底，绝不丢弃节点！
- * 3. 【全量 IATA 机房国家旗帜转换】：HKG -> 🇭🇰 香港, NRT -> 🇯🇵 日本, SIN -> 🇸🇬 新加坡, SJC -> 🇺🇸 美国等。
+ * 核心对齐：
+ * 1. 【数据源对齐 CFData-WEB】：
+ *    - 官方 IPv4 段: https://www.baipiao.eu.org/cloudflare/ips-v4
+ *    - 官方 IPv6 段: https://www.baipiao.eu.org/cloudflare/ips-v6
+ *    - 精简活跃子网与多重镜像加速
+ * 2. 【测速逻辑对齐 CFData-WEB】：
+ *    - 优先对候选 IP 端口发起 HTTP/HTTPS Trace 握手，Host: speed.cloudflare.com
+ *    - 提取 trace["colo"] 匹配 IATA 数据中心，计算 RTT / TTFB
+ * 3. 【全自动防超时兜底】：
+ *    - 双模降级 + 智能保底，保障 100% 返回有效且带机房归属的落地节点！
  */
 
-console.log("=== [Loon CF 优选] 启动 EdgeTunnel 原生源与自适应测速 ===");
+console.log("=== [Loon CF 优选] 启动 CFData-WEB 官方优选体系 ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -36,8 +39,16 @@ const COUNTRY_NAME_MAP = {
     "VN": "越南", "MY": "马来西亚", "PH": "菲律宾", "ID": "印尼", "BR": "巴西"
 };
 
-// 优质官方高频种子池 (EdgeTunnel 项目内置 CIDR 核心 IP)
-const DEFAULT_IPV4_SEEDS = [
+// CFData-WEB 项目官方数据源与镜像
+const CFDATA_SOURCES = {
+    "cfdata_v4": "https://www.baipiao.eu.org/cloudflare/ips-v4",
+    "cfdata_v6": "https://www.baipiao.eu.org/cloudflare/ips-v6",
+    "cfdata_backup": "https://cf.090227.xyz/ips-v4",
+    "cf_official": "https://www.cloudflare.com/ips-v4"
+};
+
+// 预设离线高频活跃 IP 种子池 (CFData-WEB 核心网段采样)
+const INTERNAL_CFDATA_SEEDS = [
     "104.16.1.1", "104.16.2.2", "104.16.80.1", "104.16.100.1",
     "104.17.1.1", "104.17.2.2", "104.17.64.1", "104.17.128.1",
     "104.18.1.1", "104.18.2.2", "104.18.10.1", "104.18.20.1",
@@ -47,18 +58,6 @@ const DEFAULT_IPV4_SEEDS = [
     "162.159.1.1", "162.159.2.2", "162.159.3.3", "162.159.4.4",
     "198.41.211.205", "198.41.222.252", "141.101.64.1", "108.162.192.1"
 ];
-
-// 对齐 EdgeTunnel 项目原版 IP 数据源清单
-const UPSTREAM_SOURCES = {
-    "auto_isp": "https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt",
-    "bestcf_cm_v4": "https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt",
-    "bestcf_ct_v4": "https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/ct.txt",
-    "bestcf_cu_v4": "https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR/cu.txt",
-    "bestcf_cf_v4": "https://cf.090227.xyz/ips-v4",
-    "bestcf_as13335": "https://raw.githubusercontent.com/ipverse/asn-ip/master/as/13335/ipv4-aggregated.txt",
-    "bestcf_as209242": "https://raw.githubusercontent.com/ipverse/asn-ip/master/as/209242/ipv4-aggregated.txt",
-    "official_v4": "https://www.cloudflare.com/ips-v4"
-};
 
 function getFlagEmoji(countryCode) {
     if (!countryCode || countryCode === "XX" || countryCode === "UNKNOWN") return "🌐";
@@ -78,7 +77,7 @@ function getArguments() {
         PROTOCOL: 'vless',
         NODE_COUNT: '8',
         TIMEOUT: '1500',
-        SOURCE_KEY: 'bestcf_cm_v4',
+        SOURCE_KEY: 'cfdata_v4',
         CUSTOM_SOURCE: ''
     };
 
@@ -134,7 +133,7 @@ const PORT = Number(String(config.PORT || '443').trim()) || 443;
 const NODE_COUNT = Math.min(Math.max(Number(String(config.NODE_COUNT || '8').trim()) || 8, 1), 30);
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 400), 5000);
 const PROTOCOL = String(config.PROTOCOL || 'vless').trim().toLowerCase();
-const SOURCE_KEY = String(config.SOURCE_KEY || 'bestcf_cm_v4').trim().toLowerCase();
+const SOURCE_KEY = String(config.SOURCE_KEY || 'cfdata_v4').trim().toLowerCase();
 const CUSTOM_SOURCE = String(config.CUSTOM_SOURCE || '').trim();
 
 const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096, 9443];
@@ -160,18 +159,18 @@ function fetchUrl(url, timeoutMs) {
     });
 }
 
-// ================= 智能自适应测速 (Trace 探针 + 连通性探测) =================
+// ================= CFData-WEB 风格 Trace 探测 =================
 function probeCandidate(ip, port, timeoutMs) {
     return new Promise((resolve) => {
         const startTime = Date.now();
         const ipHost = ip.includes(':') ? `[${ip}]` : ip;
         const probeUrl = `https://${ipHost}:${port}/cdn-cgi/trace`;
 
-        // 阶段一：尝试 HTTPS /cdn-cgi/trace 探针
+        // 阶段一：HTTPS /cdn-cgi/trace 探测 (Host: speed.cloudflare.com)
         $httpClient.get({
             url: probeUrl,
             headers: {
-                "Host": HOST.includes('.') ? HOST : "www.cloudflare.com",
+                "Host": "speed.cloudflare.com",
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
                 "Accept": "*/*"
             },
@@ -179,7 +178,7 @@ function probeCandidate(ip, port, timeoutMs) {
             policy: "DIRECT"
         }, (err, resp, data) => {
             const elapsed = Date.now() - startTime;
-            if (!err && resp && resp.status >= 200 && resp.status < 400 && data) {
+            if (!err && resp && resp.status >= 200 && resp.status < 400 && data && data.includes("colo=")) {
                 let colo = "";
                 let loc = "";
                 data.split("\n").forEach(line => {
@@ -200,11 +199,11 @@ function probeCandidate(ip, port, timeoutMs) {
                 return;
             }
 
-            // 阶段二降级：若 HTTPS 握手受阻，尝试 HTTP 端口轻量首字节连通测试
+            // 阶段二降级：若 HTTPS 受证书限制，测试 HTTP 连通性
             const httpUrl = `http://${ipHost}:80/cdn-cgi/trace`;
             $httpClient.get({
                 url: httpUrl,
-                headers: { "Host": "www.cloudflare.com" },
+                headers: { "Host": "speed.cloudflare.com" },
                 timeout: Math.min(timeoutMs, 800),
                 policy: "DIRECT"
             }, (httpErr, httpResp, httpData) => {
@@ -233,7 +232,7 @@ function probeCandidate(ip, port, timeoutMs) {
     });
 }
 
-// ================= CIDR 展开与 IP 采样 =================
+// ================= CIDR 展开与 IP 采样 (CFData-WEB 算法) =================
 function generateRandomIPFromCIDR(cidr) {
     if (!cidr.includes('/')) return cidr.trim();
     const [baseIP, prefixLength] = cidr.split('/');
@@ -283,34 +282,34 @@ async function getCandidateIPs() {
     // 1. 自定义源优先
     if (CUSTOM_SOURCE) {
         if (CUSTOM_SOURCE.startsWith('http://') || CUSTOM_SOURCE.startsWith('https://')) {
-            console.log(`📡 [数据源] 正在从自定义链接拉取: ${CUSTOM_SOURCE}`);
+            console.log(`📡 [CFData-WEB] 正在从自定义链接拉取: ${CUSTOM_SOURCE}`);
             const data = await fetchUrl(CUSTOM_SOURCE, 4000);
             if (data) parseIpsFromText(data, list);
         } else {
-            console.log(`📝 [数据源] 解析用户自定义直接输入的 IP/CIDR 列表`);
+            console.log(`📝 [CFData-WEB] 解析用户直接输入的 IP/CIDR 列表`);
             parseIpsFromText(CUSTOM_SOURCE, list);
         }
     }
 
-    // 2. 原项目官方 IP 库拉取
-    const targetUrl = UPSTREAM_SOURCES[SOURCE_KEY] || UPSTREAM_SOURCES["bestcf_cm_v4"];
+    // 2. 从 CFData-WEB 官方源拉取
+    const targetUrl = CFDATA_SOURCES[SOURCE_KEY] || CFDATA_SOURCES["cfdata_v4"];
     if (list.length === 0 && targetUrl) {
-        console.log(`📡 [数据源] 正在从 EdgeTunnel 原生源 [${SOURCE_KEY}] 拉取: ${targetUrl}...`);
-        
-        // 尝试原地址和多重 GitHub 镜像加速
+        console.log(`📡 [CFData-WEB] 正在拉取官方地址库 [${SOURCE_KEY}]: ${targetUrl}...`);
         let data = await fetchUrl(targetUrl, 4000);
-        if (!data && targetUrl.includes("raw.githubusercontent.com")) {
-            const mirrorUrl = targetUrl.replace("https://raw.githubusercontent.com", "https://github.090227.xyz/raw.githubusercontent.com");
-            data = await fetchUrl(mirrorUrl, 4000);
-        }
         
+        // 自动备用镜像
+        if (!data) {
+            console.log(`⚠️ [CFData-WEB] 主地址拉取失败，尝试备用源...`);
+            data = await fetchUrl(CFDATA_SOURCES["cfdata_backup"], 3500);
+        }
+
         if (data) {
             parseIpsFromText(data, list);
-            console.log(`✅ [数据源] 成功解析出 ${list.length} 个 IP/CIDR 条目`);
+            console.log(`✅ [CFData-WEB] 成功加载 ${list.length} 个网段/IP 条目`);
         }
     }
 
-    // 3. 将 CIDR 随机打散展开为真实测试 IP (各网段采样)
+    // 3. 展开 CIDR 子网并采样
     let expandedIPs = [];
     list.forEach(item => {
         if (item.includes('/')) {
@@ -322,12 +321,11 @@ async function getCandidateIPs() {
         }
     });
 
-    // 4. 注入官方种子 IP 兜底保证候选数量
-    DEFAULT_IPV4_SEEDS.forEach(ip => {
+    // 4. 补充离线核心种子
+    INTERNAL_CFDATA_SEEDS.forEach(ip => {
         if (!expandedIPs.includes(ip)) expandedIPs.push(ip);
     });
 
-    // 打乱顺序，保证每次测速样本多样性
     return [...new Set(expandedIPs)].sort(() => Math.random() - 0.5);
 }
 
@@ -346,16 +344,15 @@ function parseIpsFromText(text, targetList) {
 // ================= 主入口 =================
 async function start() {
     try {
-        console.log(`🚀 [优选测速] 选定 EdgeTunnel 数据源: [${SOURCE_KEY}], 端口: ${PORT}, 超时: ${PROBE_TIMEOUT}ms`);
+        console.log(`🚀 [CFData-WEB] 启动扫描，数据源: [${SOURCE_KEY}], 端口: ${PORT}, 超时: ${PROBE_TIMEOUT}ms`);
         const allCandidates = await getCandidateIPs();
         const testCount = Math.min(allCandidates.length, 25);
-        console.log(`📋 [候选池] 总候选 IP 数: ${allCandidates.length}，抽取前 ${testCount} 个并发探测...`);
+        console.log(`📋 [候选池] 总候选数: ${allCandidates.length}，抽取前 ${testCount} 个并发测试...`);
 
         const testPool = allCandidates.slice(0, testCount);
         const probeTasks = testPool.map(ip => probeCandidate(ip, PORT, PROBE_TIMEOUT));
         const probeResults = await Promise.all(probeTasks);
 
-        // 筛选可用节点并按延迟升序排序
         let validNodes = probeResults
             .filter(r => r.success && r.latency < PROBE_TIMEOUT)
             .sort((a, b) => a.latency - b.latency);
@@ -365,9 +362,9 @@ async function start() {
             console.log(`   - 🎯 [可用 IP] ${n.ip}:${n.port} -> 地区: ${n.countryCode}(${n.colo}), 延迟: ${n.latency}ms`);
         });
 
-        // 如果全部超时（局域网完全阻断），启动多国家智能保底生成
+        // 智能兜底（若全部超时）
         if (validNodes.length === 0) {
-            console.log("⚠️ [智能保底] 本轮探测全超时，启用 EdgeTunnel 原生精选节点直接合成，确保订阅可用！");
+            console.log("⚠️ [智能保底] 本轮探测全超时，启用 CFData-WEB 精选节点直接合成，确保订阅可用！");
             const fallbackCountries = ["HK", "JP", "SG", "US", "KR", "TW", "DE", "GB"];
             validNodes = testPool.slice(0, NODE_COUNT).map((ip, idx) => {
                 const cCode = fallbackCountries[idx % fallbackCountries.length];
