@@ -7,7 +7,7 @@ version = 3.4.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时测速并返回最优节点
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=34, argument=[{uuid},{host},{path},{port},{protocol},{test_count},{node_count},{timeout},{custom_source}], timeout=20, tag=CF实时优选节点生成
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=38, argument=[{uuid},{host},{path},{port},{protocol},{test_count},{node_count},{timeout},{custom_source}], timeout=20, tag=CF实时优选节点生成
 
 [Argument]
 uuid = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
