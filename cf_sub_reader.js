@@ -1,5 +1,5 @@
 /**
- * Loon Cloudflare 优选节点生成器 (高可用自适应极速版)
+ * Loon Cloudflare 优选节点生成器 (支持自定义测试规模版)
  * 
  * 作用：拦截对虚拟订阅地址 http://httpbin.org/cf_sub 的访问，
  * 动态根据配置参数拉取最新维护的优选 IP，并在本地实时检测与组装节点。
@@ -56,6 +56,7 @@ function getArguments() {
         PORT: '443',
         PROTOCOL: 'vless',
         NODE_COUNT: '8',
+        TEST_COUNT: '30',
         TIMEOUT: '1500',
         CUSTOM_SOURCE: ''
     };
@@ -83,6 +84,7 @@ function getArguments() {
                 if (key === 'port') args.PORT = decoded;
                 if (key === 'protocol') args.PROTOCOL = decoded;
                 if (key === 'node_count') args.NODE_COUNT = decoded;
+                if (key === 'test_count') args.TEST_COUNT = decoded;
                 if (key === 'timeout') args.TIMEOUT = decoded;
                 if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
             }
@@ -98,6 +100,7 @@ function getArguments() {
             if (isValid($argument.port)) args.PORT = String($argument.port).trim();
             if (isValid($argument.protocol)) args.PROTOCOL = String($argument.protocol).trim();
             if (isValid($argument.node_count)) args.NODE_COUNT = String($argument.node_count).trim();
+            if (isValid($argument.test_count)) args.TEST_COUNT = String($argument.test_count).trim();
             if (isValid($argument.timeout)) args.TIMEOUT = String($argument.timeout).trim();
             if (isValid($argument.custom_source)) args.CUSTOM_SOURCE = String($argument.custom_source).trim();
         } else if (typeof $argument === 'string') {
@@ -115,6 +118,7 @@ function getArguments() {
                     if (key === 'port') args.PORT = decoded;
                     if (key === 'protocol') args.PROTOCOL = decoded;
                     if (key === 'node_count') args.NODE_COUNT = decoded;
+                    if (key === 'test_count') args.TEST_COUNT = decoded;
                     if (key === 'timeout') args.TIMEOUT = decoded;
                     if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
                 }
@@ -133,7 +137,8 @@ if (!rawPath.startsWith('/')) rawPath = '/' + rawPath;
 const PATH = rawPath;
 
 const PORT = Number(String(config.PORT || '443').trim()) || 443;
-const NODE_COUNT = Math.min(Math.max(Number(String(config.NODE_COUNT || '8').trim()) || 8, 1), 30);
+const NODE_COUNT = Math.min(Math.max(Number(String(config.NODE_COUNT || '8').trim()) || 8, 1), 50);
+const TEST_COUNT = Math.min(Math.max(Number(String(config.TEST_COUNT || '30').trim()) || 30, 5), 200);
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 4000);
 const PROTOCOL = String(config.PROTOCOL || 'vless').trim().toLowerCase();
 const CUSTOM_SOURCE = String(config.CUSTOM_SOURCE || '').trim();
@@ -146,7 +151,8 @@ console.log(`   ├─ 域名: ${HOST}`);
 console.log(`   ├─ 路径: ${PATH}`);
 console.log(`   ├─ 端口: ${PORT}`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
-console.log(`   ├─ 数量: ${NODE_COUNT}`);
+console.log(`   ├─ 测速规模(候选池): ${TEST_COUNT} 个`);
+console.log(`   ├─ 最终输出数量: ${NODE_COUNT} 个`);
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}******`);
 
 // ================= 网络请求 Promise =================
@@ -328,11 +334,11 @@ async function start() {
         const allCandidates = await getCandidateIPs();
         
         const batchSize = 10;
-        const maxTestCount = Math.min(allCandidates.length, 20);
-        const testPool = allCandidates.slice(0, maxTestCount);
+        const testCount = Math.min(allCandidates.length, TEST_COUNT);
+        const testPool = allCandidates.slice(0, testCount);
         let validNodes = [];
 
-        console.log(`📋 [样本池] 候选总量: ${allCandidates.length}，分批测试 ${testPool.length} 个 IP...`);
+        console.log(`📋 [样本池] 候选总量: ${allCandidates.length}，本次按配置测速规模测试 ${testPool.length} 个 IP (每批 ${batchSize} 个)...`);
 
         for (let i = 0; i < testPool.length; i += batchSize) {
             const batch = testPool.slice(i, i + batchSize);
@@ -342,7 +348,9 @@ async function start() {
             const batchValids = batchResults.filter(r => r.success && r.latency < PROBE_TIMEOUT);
             validNodes.push(...batchValids);
 
+            // 若已收集满所需节点数，提前结束测速
             if (validNodes.length >= NODE_COUNT) {
+                console.log(`🎯 已提前收集满 ${NODE_COUNT} 个低延迟可用节点，提前结束测速！`);
                 break;
             }
         }
@@ -350,7 +358,7 @@ async function start() {
         validNodes.sort((a, b) => a.latency - b.latency);
         console.log(`📊 [测速汇总] 成功测得 ${validNodes.length} 个低延迟节点！`);
 
-        // 如果全部探测超时（所在网络阻断直连生 IP 握手），启用亚洲核心机房智能分配生成
+        // 如果全部探测超时，启用亚洲核心机房智能分配生成
         if (validNodes.length === 0) {
             console.log("⚠️ [智能落地分配] 当前网络拦截直连探针，启用高质量真实优选 IP 智能分配落地生成！");
             const fallbackCountries = ["HK", "JP", "SG", "US", "KR", "TW", "DE", "GB"];
