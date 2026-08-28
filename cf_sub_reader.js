@@ -1,17 +1,11 @@
 /**
- * Loon Cloudflare 优选节点生成器 (终极全保活与自适应对齐版)
+ * Loon Cloudflare 优选节点生成器 (高可用自适应极速版)
  * 
- * 核心升级：
- * 1. 【修复 VLESS URL 格式缺陷】：精准对齐 EdgeTunnel 规范，修正 path/host/sni 及 TLS 参数；
- * 2. 【多级高存活优选源】：
- *    - 优先拉取国内大带宽 24h 实时测速维护源 (ips.gaoji.uk / ip.164746.xyz / cf.090227.xyz)；
- *    - 混合官方 CFData-WEB IPv4 段与移动/电信/联通精选段；
- * 3. 【秒级智能测速与双层落地】：
- *    - 自动识别真实可用节点并排序；
- *    - 无论测速结果如何，生成的节点格式完全合规，彻底解决 Loon 订阅全红 timeout 问题！
+ * 作用：拦截对虚拟订阅地址 http://httpbin.org/cf_sub 的访问，
+ * 动态根据配置参数拉取最新维护的优选 IP，并在本地实时检测与组装节点。
  */
 
-console.log("=== [Loon CF 优选] 启动终极自适应对齐版 ===");
+console.log("=== [Loon CF 优选] 收到订阅获取请求，开始生成节点 ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -30,7 +24,7 @@ const COUNTRY_NAME_MAP = {
     "NL": "荷兰", "AU": "澳大利亚"
 };
 
-// 预设高存活率的真实优选 IP 种子池 (针对中国大陆三网优化)
+// 预设高存活率的真实优选 IP 种子池 (精选自全球各大可用 Anycast IP)
 const PRESET_CLEAN_IPS = [
     "104.16.80.80", "104.16.100.100", "104.17.64.64", "104.17.128.128",
     "104.18.10.10", "104.18.20.20", "104.19.10.10", "104.19.50.50",
@@ -42,8 +36,7 @@ const PRESET_CLEAN_IPS = [
 const IP_SOURCE_URLS = [
     "https://ips.gaoji.uk/best_ips.txt",
     "https://ip.164746.xyz/ip_top.txt",
-    "https://addressesapi.090227.xyz/CloudFlareYes",
-    "https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt"
+    "https://addressesapi.090227.xyz/CloudFlareYes"
 ];
 
 function getFlagEmoji(countryCode) {
@@ -54,76 +47,107 @@ function getFlagEmoji(countryCode) {
     return String.fromCodePoint(base + code.charCodeAt(0)) + String.fromCodePoint(base + code.charCodeAt(1));
 }
 
-// ================= 参数解析 =================
+// ================= 安全参数解析 =================
 function getArguments() {
     let args = {
-        UUID: '',
-        HOST: '',
-        PATH: '/',
+        UUID: '90cd4a77-141a-43c9-991b-08263cfe9c10',
+        HOST: 'your-worker-domain.com',
+        PATH: '/video',
         PORT: '443',
         PROTOCOL: 'vless',
         NODE_COUNT: '8',
-        TIMEOUT: '1200',
+        TIMEOUT: '1500',
         CUSTOM_SOURCE: ''
     };
 
-    let queryString = '';
+    const isValid = (val) => {
+        if (val === undefined || val === null) return false;
+        let s = String(val).trim();
+        return s !== '' && s !== 'undefined' && s !== 'null' && 
+               !(s.startsWith('{') && s.endsWith('}')) && 
+               !(s.startsWith('%7B') && s.endsWith('%7D'));
+    };
+
+    // 1. 优先尝试从 URL 查询参数解析
     if (typeof $request !== 'undefined' && $request && $request.url && $request.url.includes('?')) {
-        queryString = $request.url.split('?')[1];
-    }
-
-    if (!queryString && typeof $argument !== 'undefined' && $argument) {
-        if (typeof $argument === 'object') {
-            if ($argument.uuid) args.UUID = String($argument.uuid).trim();
-            if ($argument.host) args.HOST = String($argument.host).trim();
-            if ($argument.path) args.PATH = String($argument.path).trim();
-            if ($argument.port) args.PORT = String($argument.port).trim();
-            if ($argument.protocol) args.PROTOCOL = String($argument.protocol).trim();
-            if ($argument.node_count) args.NODE_COUNT = String($argument.node_count).trim();
-            if ($argument.timeout) args.TIMEOUT = String($argument.timeout).trim();
-            if ($argument.custom_source) args.CUSTOM_SOURCE = String($argument.custom_source).trim();
-            return args;
-        }
-        queryString = String($argument).trim().replace(/^['"]|['"]$/g, '');
-    }
-
-    if (queryString) {
-        let separator = queryString.includes(',') ? ',' : '&';
-        let pairs = queryString.split(separator);
+        let queryString = $request.url.split('?')[1];
+        let pairs = queryString.split('&');
         for (let pair of pairs) {
             let [key, val] = pair.split('=');
-            if (key && val) {
+            if (key && isValid(val)) {
                 key = key.trim().toLowerCase();
-                val = decodeURIComponent(val.trim());
-                if (key === 'uuid' || key === 'password') args.UUID = val;
-                if (key === 'host' || key === 'domain') args.HOST = val;
-                if (key === 'path') args.PATH = val;
-                if (key === 'port') args.PORT = val;
-                if (key === 'protocol') args.PROTOCOL = val;
-                if (key === 'node_count') args.NODE_COUNT = val;
-                if (key === 'timeout') args.TIMEOUT = val;
-                if (key === 'custom_source') args.CUSTOM_SOURCE = val;
+                let decoded = decodeURIComponent(val.trim());
+                if (key === 'uuid' || key === 'password') args.UUID = decoded;
+                if (key === 'host' || key === 'domain') args.HOST = decoded;
+                if (key === 'path') args.PATH = decoded;
+                if (key === 'port') args.PORT = decoded;
+                if (key === 'protocol') args.PROTOCOL = decoded;
+                if (key === 'node_count') args.NODE_COUNT = decoded;
+                if (key === 'timeout') args.TIMEOUT = decoded;
+                if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
             }
         }
     }
+
+    // 2. 从 Loon 插件 $argument 中解析
+    if (typeof $argument !== 'undefined' && $argument) {
+        if (typeof $argument === 'object') {
+            if (isValid($argument.uuid)) args.UUID = String($argument.uuid).trim();
+            if (isValid($argument.host)) args.HOST = String($argument.host).trim();
+            if (isValid($argument.path)) args.PATH = String($argument.path).trim();
+            if (isValid($argument.port)) args.PORT = String($argument.port).trim();
+            if (isValid($argument.protocol)) args.PROTOCOL = String($argument.protocol).trim();
+            if (isValid($argument.node_count)) args.NODE_COUNT = String($argument.node_count).trim();
+            if (isValid($argument.timeout)) args.TIMEOUT = String($argument.timeout).trim();
+            if (isValid($argument.custom_source)) args.CUSTOM_SOURCE = String($argument.custom_source).trim();
+        } else if (typeof $argument === 'string') {
+            let argStr = String($argument).trim().replace(/^['"]|['"]$/g, '');
+            let separator = argStr.includes(',') ? ',' : '&';
+            let pairs = argStr.split(separator);
+            for (let pair of pairs) {
+                let [key, val] = pair.split('=');
+                if (key && isValid(val)) {
+                    key = key.trim().toLowerCase();
+                    let decoded = decodeURIComponent(val.trim());
+                    if (key === 'uuid' || key === 'password') args.UUID = decoded;
+                    if (key === 'host' || key === 'domain') args.HOST = decoded;
+                    if (key === 'path') args.PATH = decoded;
+                    if (key === 'port') args.PORT = decoded;
+                    if (key === 'protocol') args.PROTOCOL = decoded;
+                    if (key === 'node_count') args.NODE_COUNT = decoded;
+                    if (key === 'timeout') args.TIMEOUT = decoded;
+                    if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
+                }
+            }
+        }
+    }
+
     return args;
 }
 
 const config = getArguments();
-const UUID = String(config.UUID || '90cd4a77-141a-43c9-991b-08263cfe9c10').trim();
-const HOST = String(config.HOST || 'your-worker-domain.com').trim();
+const UUID = String(config.UUID || '').trim();
+const HOST = String(config.HOST || '').trim();
 let rawPath = String(config.PATH || '/').trim();
 if (!rawPath.startsWith('/')) rawPath = '/' + rawPath;
 const PATH = rawPath;
 
 const PORT = Number(String(config.PORT || '443').trim()) || 443;
 const NODE_COUNT = Math.min(Math.max(Number(String(config.NODE_COUNT || '8').trim()) || 8, 1), 30);
-const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1200').trim()) || 1200, 300), 3000);
+const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 4000);
 const PROTOCOL = String(config.PROTOCOL || 'vless').trim().toLowerCase();
 const CUSTOM_SOURCE = String(config.CUSTOM_SOURCE || '').trim();
 
 const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096, 9443];
 const isTls = TLS_PORTS.includes(PORT);
+
+console.log(`🔍 [配置解析] 最终参数结果:`);
+console.log(`   ├─ 域名: ${HOST}`);
+console.log(`   ├─ 路径: ${PATH}`);
+console.log(`   ├─ 端口: ${PORT}`);
+console.log(`   ├─ 协议: ${PROTOCOL}`);
+console.log(`   ├─ 数量: ${NODE_COUNT}`);
+console.log(`   └─ 凭据: ${UUID.substring(0, 8)}******`);
 
 // ================= 网络请求 Promise =================
 function fetchUrl(url, timeoutMs) {
@@ -139,7 +163,7 @@ function fetchUrl(url, timeoutMs) {
         $httpClient.get({
             url: url,
             policy: "DIRECT",
-            timeout: Math.floor((timeoutMs || 3000) / 1000) || 3,
+            timeout: (timeoutMs || 3000) / 1000,
             headers: {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"
             }
@@ -170,7 +194,7 @@ function probeCandidate(ip, port, timeoutMs) {
                 finished = true;
                 resolve({ ip: ip, port: port, latency: 9999, colo: "", countryCode: "XX", success: false });
             }
-        }, timeoutMs + 200);
+        }, timeoutMs);
 
         $httpClient.get({
             url: probeUrl,
@@ -179,7 +203,7 @@ function probeCandidate(ip, port, timeoutMs) {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
                 "Accept": "*/*"
             },
-            timeout: Math.ceil(timeoutMs / 1000) || 1,
+            timeout: timeoutMs / 1000,
             policy: "DIRECT"
         }, (err, resp, data) => {
             if (!finished) {
@@ -221,8 +245,6 @@ function createNodeLink(item, rank) {
     const remark = encodeURIComponent(remarkStr);
     const connPort = item.port || PORT;
     const connTls = TLS_PORTS.includes(Number(connPort));
-
-    // 严谨编码 path 参数
     const encodedPath = encodeURIComponent(PATH);
 
     if (PROTOCOL === 'vless') {
@@ -271,7 +293,7 @@ async function getCandidateIPs() {
         }
     }
 
-    // 2. 尝试并发拉取多重在线优选源
+    // 2. 并发拉取高质量在线优选源
     if (list.length === 0) {
         console.log(`📡 [数据源] 并发拉取高质量在线优选源...`);
         const sourceDataList = await Promise.all(IP_SOURCE_URLS.map(u => fetchUrl(u, 2500)));
@@ -328,7 +350,7 @@ async function start() {
         validNodes.sort((a, b) => a.latency - b.latency);
         console.log(`📊 [测速汇总] 成功测得 ${validNodes.length} 个低延迟节点！`);
 
-        // 如果全部探测超时（所在网络阻断生 IP HTTP 握手），启用按亚洲核心机房智能分配生成
+        // 如果全部探测超时（所在网络阻断直连生 IP 握手），启用亚洲核心机房智能分配生成
         if (validNodes.length === 0) {
             console.log("⚠️ [智能落地分配] 当前网络拦截直连探针，启用高质量真实优选 IP 智能分配落地生成！");
             const fallbackCountries = ["HK", "JP", "SG", "US", "KR", "TW", "DE", "GB"];
