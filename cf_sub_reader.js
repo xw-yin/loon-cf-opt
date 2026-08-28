@@ -1,13 +1,5 @@
 /**
- * Loon Cloudflare 优选节点生成器 (高可用自适应极速版 v3.6)
- * 
- * 核心升级：
- * 1. 【完美适配 Loon 网络层】：
- *    - iOS Loon 的 $httpClient 对纯 IP 的 HTTPS (如 https://104.16.80.80:443) 存在系统级 TLS 证书校验阻断；
- *    - 升级为 HTTP 80/8080 及带 Worker 代理测速探针，确保本地测速 100% 连通与准确测量 RTT！
- * 2. 【生成标准 VLESS 链接】：
- *    - 严格遵循 EdgeTunnel 规范生成标准 `vless://uuid@ip:443?security=tls&encryption=none&type=ws&host=host&path=path&sni=host&fp=chrome#remark`
- * 3. 【多重高质量数据源 + 50+ 内置干净优选池】
+ * Loon Cloudflare 优选节点生成器 (带深度探针诊断与秒级响应 v3.7)
  */
 
 console.log("=== [Loon CF 优选] 收到订阅获取请求，开始生成节点 ===");
@@ -29,7 +21,7 @@ const COUNTRY_NAME_MAP = {
     "NL": "荷兰", "AU": "澳大利亚"
 };
 
-// 预设高存活率的真实优选 IP 种子池 (针对中国大陆三网优化 60+ 优质 IP)
+// 预设高存活率的真实优选 IP 种子池
 const PRESET_CLEAN_IPS = [
     "104.16.80.80", "104.16.81.81", "104.16.82.82", "104.16.83.83", "104.16.100.100", "104.16.101.101",
     "104.17.64.64", "104.17.65.65", "104.17.128.128", "104.17.129.129", "104.17.130.130",
@@ -57,7 +49,7 @@ function getFlagEmoji(countryCode) {
     return String.fromCodePoint(base + code.charCodeAt(0)) + String.fromCodePoint(base + code.charCodeAt(1));
 }
 
-// ================= 安全参数解析 =================
+// ================= 参数解析 =================
 function getArguments() {
     let args = {
         UUID: '90cd4a77-141a-43c9-991b-08263cfe9c10',
@@ -194,18 +186,17 @@ function fetchUrl(url, timeoutMs) {
 }
 
 // ================= 严格带超时防护的单点探测 =================
-function probeCandidate(ip, port, timeoutMs) {
+function probeCandidate(ip, port, timeoutMs, isFirst) {
     return new Promise((resolve) => {
         let finished = false;
         const startTime = Date.now();
         const ipHost = ip.includes(':') ? `[${ip}]` : ip;
-        
-        // 探测策略：使用 HTTP 80 /cdn-cgi/trace 避免移动端对 IP 证书的阻断
         const probeUrl = `http://${ipHost}:80/cdn-cgi/trace`;
 
         const timer = setTimeout(() => {
             if (!finished) {
                 finished = true;
+                if (isFirst) console.log(`   ⚠️ [探针调试] IP ${ip} 探测超时 (${timeoutMs}ms)`);
                 resolve({ ip: ip, port: port, latency: 9999, colo: "", countryCode: "XX", success: false });
             }
         }, timeoutMs);
@@ -221,6 +212,11 @@ function probeCandidate(ip, port, timeoutMs) {
                 finished = true;
                 clearTimeout(timer);
                 const elapsed = Date.now() - startTime;
+                
+                if (isFirst) {
+                    console.log(`   🔎 [探针回调] IP: ${ip}, err: ${err || 'none'}, status: ${resp ? resp.status : 'none'}`);
+                }
+
                 if (!err && resp && resp.status >= 200 && resp.status < 400 && data && data.includes("colo=")) {
                     let colo = "";
                     let loc = "";
@@ -347,7 +343,7 @@ async function start() {
 
         for (let i = 0; i < testPool.length; i += batchSize) {
             const batch = testPool.slice(i, i + batchSize);
-            const batchTasks = batch.map(ip => probeCandidate(ip, PORT, PROBE_TIMEOUT));
+            const batchTasks = batch.map((ip, idx) => probeCandidate(ip, PORT, PROBE_TIMEOUT, i === 0 && idx === 0));
             const batchResults = await Promise.all(batchTasks);
             
             const batchValids = batchResults.filter(r => r.success && r.latency < PROBE_TIMEOUT);
@@ -363,7 +359,7 @@ async function start() {
         validNodes.sort((a, b) => a.latency - b.latency);
         console.log(`📊 [测速汇总] 成功测得 ${validNodes.length} 个低延迟节点！`);
 
-        // 如果全部探测超时，启用亚洲核心机房智能分配生成
+        // 如果直连探针被网络策略拦截，启用亚洲核心机房智能分配生成
         if (validNodes.length === 0) {
             console.log("⚠️ [智能落地分配] 当前网络拦截直连探针，启用高质量真实优选 IP 智能分配落地生成！");
             const fallbackCountries = ["HK", "JP", "SG", "US", "KR", "TW", "DE", "GB"];
