@@ -1,10 +1,13 @@
 /**
- * Loon Cloudflare 优选节点生成器 (成功捕获边缘 RTT 与机房 v3.9)
+ * Loon Cloudflare 优选节点生成器 (高可用自适应极速版 v4.0)
  * 
- * 核心修复：
- * - Cloudflare 边缘对直连非 80 端口的 Host 请求会返回 HTTP 400 (Bad Request)，
- *   但只要收到 400 且在指定毫秒内响应，就证明该 IP【100% 存活且直连延迟极低】！
- * - 如果响应 body 中带有 colo，精准提取；若无，按 RTT 延迟排序并赋予优质亚太落地！
+ * 核心升级：
+ * 1. 【放行所有连通响应 (200~599)】：
+ *    - 无论 Cloudflare 边缘返回 200, 400 (Bad Request) 还是 403，只要收到响应即证明该 IP 链路 100% 畅通！
+ *    - 依据真实往返耗时 (RTT) 进行排序；
+ * 2. 【智能解析地理位置与国旗】：
+ *    - 优先解析返回的 colo 代码，若无则根据延迟自动分配港/日/新/美等热门落地机房；
+ * 3. 【标准 VLESS 443 TLS 节点格式输出】。
  */
 
 console.log("=== [Loon CF 优选] 收到订阅获取请求，开始生成节点 ===");
@@ -64,7 +67,7 @@ function getArguments() {
         PROTOCOL: 'vless',
         NODE_COUNT: '8',
         TEST_COUNT: '30',
-        TIMEOUT: '2000',
+        TIMEOUT: '2500',
         CUSTOM_SOURCE: ''
     };
 
@@ -144,7 +147,7 @@ const PATH = rawPath;
 const PORT = Number(String(config.PORT || '443').trim()) || 443;
 const NODE_COUNT = Math.min(Math.max(Number(String(config.NODE_COUNT || '8').trim()) || 8, 1), 50);
 const TEST_COUNT = Math.min(Math.max(Number(String(config.TEST_COUNT || '30').trim()) || 30, 5), 200);
-const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '2000').trim()) || 2000, 500), 5000);
+const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '2500').trim()) || 2500, 500), 5000);
 const PROTOCOL = String(config.PROTOCOL || 'vless').trim().toLowerCase();
 const CUSTOM_SOURCE = String(config.CUSTOM_SOURCE || '').trim();
 
@@ -221,13 +224,14 @@ function probeCandidate(ip, defaultPort, timeoutMs, isFirst) {
                 finished = true;
                 clearTimeout(timer);
                 const elapsed = Date.now() - startTime;
+                const statusCode = resp ? (resp.status || resp.statusCode || 0) : 0;
                 
                 if (isFirst) {
-                    console.log(`   🔎 [探针响应] IP: ${ip}:${probePort}, err: ${err || 'none'}, status: ${resp ? resp.status : 'none'}, 耗时: ${elapsed}ms`);
+                    console.log(`   🔎 [探针响应] IP: ${ip}:${probePort}, err: ${err || 'none'}, status: ${statusCode}, 耗时: ${elapsed}ms`);
                 }
 
-                // 核心判定：无网络错误且收到 Cloudflare 边缘响应 (200~400)
-                if (!err && resp && resp.status >= 200 && resp.status <= 400) {
+                // 核心判定：只要收到 HTTP 应答 (无论是 200, 400 还是 403)，均说明已到达 Cloudflare 边缘！
+                if (!err && statusCode >= 200 && statusCode < 600) {
                     let colo = "";
                     let loc = "";
                     if (data && typeof data === 'string') {
@@ -239,7 +243,7 @@ function probeCandidate(ip, defaultPort, timeoutMs, isFirst) {
                     }
 
                     // 若未返回完整 colo 文本，按 Anycast 延迟分配亚太优质地区
-                    const countryCode = (colo && COLO_TO_COUNTRY[colo]) ? COLO_TO_COUNTRY[colo] : (loc || (elapsed < 300 ? "HK" : (elapsed < 600 ? "JP" : "US")));
+                    const countryCode = (colo && COLO_TO_COUNTRY[colo]) ? COLO_TO_COUNTRY[colo] : (loc || (elapsed < 350 ? "HK" : (elapsed < 700 ? "JP" : "US")));
                     resolve({
                         ip: ip,
                         port: defaultPort,
