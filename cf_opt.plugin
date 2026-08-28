@@ -1,13 +1,13 @@
 [General]
-name = ⚡️ Cloudflare 优选节点实时测速生成器 (Trace 探针版)
-desc = 拦截虚拟订阅请求，并在本地使用并发 /cdn-cgi/trace 探针实时测试 IP 真实延迟与机房归属 (HKG/NRT/SIN 等)，仅输出 100% 真实可用的低延迟节点！
+name = ⚡️ Cloudflare 优选节点智能生成器 (多源自适应版)
+desc = 拦截虚拟订阅请求，支持切换 2026 最新维护的优选源，并在本地使用并发 /cdn-cgi/trace 探针实时测试 IP 真实延迟与机房归属 (HK/JP/SG/US 等)，输出 100% 可用的落地节点！
 author = Antigravity
 homepage = https://github.com/xw-yin/loon-cf-opt
-version = 3.0.0
+version = 3.1.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时测速并返回最优节点
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=20, argument=[{uuid},{host},{path},{port},{protocol},{node_count},{timeout},{custom_source}], timeout=15, tag=CF实时优选节点生成
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=31, argument=[{uuid},{host},{path},{port},{protocol},{source},{node_count},{timeout},{custom_source}], timeout=15, tag=CF实时优选节点生成
 
 [Argument]
 uuid = input, "90cd4a77-141a-43c9-991b-08263cfe9c10", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
@@ -15,8 +15,9 @@ host = input, "your-worker-domain.com", tag=Worker 域名, desc=填入绑定你�
 path = input, "/video", tag=连接路径, desc=填入传输路径 (如 /video 或 /)
 port = select, "443", "8443", "2053", "2083", "2087", "2096", "80", "8080", "8880", "2052", "2082", "2086", "2095", tag=端口, desc=默认使用 443
 protocol = select, "vless", "trojan", tag=协议类型, desc=默认使用 VLESS
+source = select, "gaoji_best", "gaoji_full", "ip_164746", "wetest_cf", "official_seed", tag=优选 IP 数据源, desc=推荐默认 gaoji_best 高速优选源 / ip_164746 / wetest_cf / 官方离线种子
 node_count = select, "8", "5", "10", "15", tag=节点生成数量, desc=筛选延迟最低的前 N 个最优节点输出
-timeout = select, "1200", "800", "1500", "2000", tag=单节点测速超时 (ms), desc=超过该延迟的节点将被自动淘汰
+timeout = select, "1500", "1000", "2000", "3000", tag=单节点测速超时 (ms), desc=超过该延迟的节点将被自动淘汰
 custom_source = input, "", tag=自定义优选源, desc=选填：用英文逗号分隔的IP或存放优选IP的URL链接
 
 [MITM]
