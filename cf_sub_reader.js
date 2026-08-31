@@ -1,19 +1,15 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (v6.0 全面重构重构版)
+ * Loon Cloudflare 优选节点智能生成器 (CIDR 智能展开 + 海量 200+ 候选池 v6.1)
  * 
- * 核心架构梳理：
- * 1. 【数据源对齐 edgetunnel-ios 原生】：
- *    - 拉取 CM 官方 CIDR 优选库与 090227 实时优选池；
- * 2. 【严密真机 TLS 测速探针】：
- *    - 优先对 443/2096 真实端口进行连通性确认；
- *    - 严格校验 200 OK + 官方 `colo=` 真实边缘机房签名；
- *    - 坚决剔除任何虚假响应与超时节点；
- * 3. 【分国家/地区按需提取】：
- *    - 每个测通的地区各提取前 N 个最低延迟节点；
- * 4. 【100% 对齐 iOS 原生 Loon 节点标准格式】。
+ * 核心升级：
+ * 1. 【支持 CIDR 网段智能展开与随机抽样 (如 173.245.48.0/20, 162.159.32.0/20)】：
+ *    - 完美解析 CM 官方 CIDR 库与 Cloudflare 官方 IP 段，从海量段中动态生成成百上千个待测 IP；
+ * 2. 【彻底解决“只拉取到 9 个待测 IP”的问题】：
+ *    - 候选池轻松支撑 50、100、200 个 IP 的自定义并发测速规模！
+ * 3. 【严密官方签名校验与每地区分流保留】。
  */
 
-console.log("=== [Loon CF 优选] 启动全新重构版本 (v6.0.0) ===");
+console.log("=== [Loon CF 优选] 启动 CIDR 智能展开海量候选池版本 (v6.1.0) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -45,12 +41,13 @@ const PRESET_TOP_NODES = [
     { ip: "162.159.16.16", port: 8443, colo: "FRA", isp: "欧洲德国", latency: 165, country: "DE" }
 ];
 
-// 对齐 edgetunnel-ios 的权威优选源
+// 对齐 edgetunnel-ios 的权威优选源 (含 CIDR 官方段与 24h 维护优选池)
 const FEED_SOURCES = [
     "https://cf.090227.xyz/ips-v4",
     "https://raw.githubusercontent.com/cmliu/cmliu/main/CF-CIDR.txt",
     "https://ip.164746.xyz/ip_top.txt",
-    "https://addressesapi.090227.xyz/CloudFlareYes"
+    "https://addressesapi.090227.xyz/CloudFlareYes",
+    "https://ips.gaoji.uk/best_ips.txt"
 ];
 
 function getFlagEmoji(countryCode) {
@@ -59,6 +56,41 @@ function getFlagEmoji(countryCode) {
     if (code.length !== 2) return "🌐";
     const base = 127397;
     return String.fromCodePoint(base + code.charCodeAt(0)) + String.fromCodePoint(base + code.charCodeAt(1));
+}
+
+// ================= CIDR 网段随机抽样算法 (与 iOS 原生一致) =================
+function ipToUInt32(ip) {
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return null;
+    return ((parts[0] << 24) >>> 0) + ((parts[1] << 16) >>> 0) + ((parts[2] << 8) >>> 0) + (parts[3] >>> 0);
+}
+
+function uint32ToIP(num) {
+    return [
+        (num >>> 24) & 255,
+        (num >>> 16) & 255,
+        (num >>> 8) & 255,
+        num & 255
+    ].join('.');
+}
+
+function sampleIPFromCIDR(cidr) {
+    const parts = cidr.split('/');
+    if (parts.length !== 2) return parts[0];
+    const baseIP = parts[0].trim();
+    const prefix = parseInt(parts[1].trim(), 10);
+    if (isNaN(prefix) || prefix < 0 || prefix > 32) return baseIP;
+
+    const ipNum = ipToUInt32(baseIP);
+    if (ipNum === null) return null;
+
+    const hostBits = 32 - prefix;
+    const hostCount = hostBits >= 32 ? 0xFFFFFFFF : (1 << hostBits) - 1;
+    const randomOffset = Math.floor(Math.random() * (hostCount + 1));
+    const mask = prefix === 0 ? 0 : (~((1 << hostBits) - 1)) >>> 0;
+    const network = (ipNum & mask) >>> 0;
+
+    return uint32ToIP((network + randomOffset) >>> 0);
 }
 
 // ================= 参数解析 =================
@@ -168,7 +200,7 @@ const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096, 9443];
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 域名: ${HOST}`);
 console.log(`   ├─ 路径: ${PATH}`);
-console.log(`   ├─ 端口: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
+console.log(`   ├─ 端口模式: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 测速筛选规模: ${TEST_SCALE} 个 IP`);
 console.log(`   ├─ 每国家/地区保留上限: ${LIMIT_PER_COUNTRY} 个`);
@@ -289,7 +321,7 @@ function createLoonNodeLine(item, rank) {
     return '';
 }
 
-// ================= 收集全网 24h 优选节点 =================
+// ================= 收集全网 24h 优选节点与 CIDR 展开 =================
 async function getBestNodes() {
     let resultList = [];
 
@@ -305,22 +337,28 @@ async function getBestNodes() {
     }
 
     // 2. 并发拉取 24h 维护的最新大带宽优选源
-    if (resultList.length === 0) {
-        console.log(`📡 [数据源] 并发拉取 24h 维护的权威优选源 (CM / 090227)...`);
-        const dataArr = await Promise.all(FEED_SOURCES.map(u => fetchUrl(u, 2000)));
-        dataArr.forEach(d => {
-            if (d) parseFeeds(d, resultList);
-        });
-    }
+    console.log(`📡 [数据源] 并发拉取权威优选源 (CM / 090227 / 164746)...`);
+    const dataArr = await Promise.all(FEED_SOURCES.map(u => fetchUrl(u, 2500)));
+    dataArr.forEach(d => {
+        if (d) parseFeeds(d, resultList);
+    });
 
-    // 3. 混入内置顶级低延迟优质节点 (确保 100% 存在 443/2096 TLS 可用节点)
+    // 3. 混入内置顶级低延迟优质节点
     PRESET_TOP_NODES.forEach(n => {
         if (!resultList.some(r => r.ip === n.ip)) {
             resultList.push({ ...n });
         }
     });
 
-    return resultList.sort((a, b) => a.latency - b.latency);
+    // 去重并随机打乱候选池
+    const uniqueMap = new Map();
+    resultList.forEach(item => {
+        if (!uniqueMap.has(item.ip)) {
+            uniqueMap.set(item.ip, item);
+        }
+    });
+
+    return Array.from(uniqueMap.values()).sort(() => Math.random() - 0.5);
 }
 
 function parseFeeds(text, targetList) {
@@ -335,6 +373,26 @@ function parseFeeds(text, targetList) {
         let mainPart = parts[0].trim();
         let tag = parts[1] ? parts[1].trim() : '';
 
+        // 处理 CIDR 网段 (例如 173.245.48.0/20)
+        if (mainPart.includes('/')) {
+            // 每个 CIDR 段随机提取 3~5 个样本 IP，充实测试池
+            for (let s = 0; s < 4; s++) {
+                const sampledIp = sampleIPFromCIDR(mainPart);
+                if (sampledIp) {
+                    targetList.push({
+                        ip: sampledIp,
+                        port: tlsPorts[(idx + s) % tlsPorts.length],
+                        colo: "AUTO",
+                        country: "HK",
+                        isp: "CIDR优选",
+                        latency: 70 + (idx % 10) * 8
+                    });
+                }
+            }
+            return;
+        }
+
+        // 处理普通 IP 或 IP:PORT
         let ipPortParts = mainPart.split(':');
         let ip = ipPortParts[0].replace(/[\[\]]/g, '').trim();
         let parsedPort = ipPortParts[1] ? Number(ipPortParts[1].trim()) : 0;
@@ -377,14 +435,14 @@ async function start() {
         
         // 阶段一：获取优质候选池
         const allNodes = await getBestNodes();
-        console.log(`📊 [阶段一：精选池] 成功拉取 ${allNodes.length} 个候选优选节点`);
+        console.log(`📊 [阶段一：精选池] 成功展开并拉取 ${allNodes.length} 个候选优选节点`);
 
         let candidateNodes = allNodes;
 
         // 阶段二：本地精准二次测速（支持最大 200 个 IP 分批并发实测）
         if (ENABLE_RETEST) {
             const testPool = allNodes.slice(0, Math.min(allNodes.length, TEST_SCALE));
-            console.log(`⚡️ [阶段二：二次测速] 正在对前 ${testPool.length} 个候选节点进行本地实测 (每批 15 个)...`);
+            console.log(`⚡️ [阶段二：二次测速] 正在对候选池中前 ${testPool.length} 个 IP 进行本地实测 (每批 15 个)...`);
             
             const batchSize = 15;
             let retestedResults = [];
