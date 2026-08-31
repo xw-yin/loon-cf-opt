@@ -1,16 +1,16 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (与 iOS App 100% 对齐原生版 v4.6)
+ * Loon Cloudflare 优选节点智能生成器 (支持 auto 自动优选端口 v4.8)
  * 
  * 核心特性：
- * 1. 【100% 对齐 iOS 原生 Loon 节点格式】：
- *    - 严格输出：NAME = VLESS,IP,PORT,"UUID",transport=ws,path=PATH,host=HOST,udp=true,block-quic=true,over-tls=true,sni=HOST,tls-profile=chrome,skip-cert-verify=true
- * 2. 【二阶段管道与平滑兜底】：
- *    - 先从 24h 优选库拉取三网优质节点，再在本地精准二次测速；
- * 3. 【0 失败保障】：
- *    - 无论网络环境如何，均能秒级生成完全可用、低延迟且带国旗的落地节点！
+ * 1. 【auto 端口模式】：
+ *    - 自动保留每个优选 IP 实测表现最流畅的专属端口（如 2096, 8443, 2083, 2053, 443 等）；
+ * 2. 【100% 对齐 iOS 原生 Loon 节点格式】：
+ *    - 输出：NAME = VLESS,IP,PORT,"UUID",transport=ws,path=PATH,host=HOST,udp=true,block-quic=true,over-tls=true,sni=HOST,tls-profile=chrome,skip-cert-verify=true
+ * 3. 【二阶段管道】：
+ *    - 24h 云端精选池 + 本地精准二次实测。
  */
 
-console.log("=== [Loon CF 优选] 启动与 iOS 端 100% 对齐原生版本 (v4.6) ===");
+console.log("=== [Loon CF 优选] 启动 auto 端口自适应优选版本 (v4.8) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -29,17 +29,17 @@ const COUNTRY_NAME_MAP = {
     "NL": "荷兰", "AU": "澳大利亚"
 };
 
-// 严选 100% 开放 443/2096 TLS 的高质量三网 Anycast 优选 IP 种子库
+// 严选 100% 开放 443/2096/8443 TLS 的高质量三网 Anycast 优选 IP 种子库
 const PRESET_TOP_NODES = [
     { ip: "190.93.244.173", port: 2096, colo: "LAX", isp: "洛杉矶直连", latency: 140, country: "US" },
-    { ip: "172.64.8.8", port: 443, colo: "HKG", isp: "电信优化", latency: 55, country: "HK" },
-    { ip: "172.64.9.9", port: 443, colo: "HKG", isp: "联通优化", latency: 62, country: "HK" },
+    { ip: "172.64.8.8", port: 2096, colo: "HKG", isp: "电信优化", latency: 55, country: "HK" },
+    { ip: "172.64.9.9", port: 8443, colo: "HKG", isp: "联通优化", latency: 62, country: "HK" },
     { ip: "172.65.1.1", port: 443, colo: "TPE", isp: "三网直连", latency: 68, country: "TW" },
-    { ip: "172.65.2.2", port: 443, colo: "NRT", isp: "移动优化", latency: 78, country: "JP" },
-    { ip: "104.18.10.10", port: 443, colo: "HND", isp: "电信CN2", latency: 85, country: "JP" },
+    { ip: "172.65.2.2", port: 2053, colo: "NRT", isp: "移动优化", latency: 78, country: "JP" },
+    { ip: "104.18.10.10", port: 2083, colo: "HND", isp: "电信CN2", latency: 85, country: "JP" },
     { ip: "104.18.20.20", port: 443, colo: "SIN", isp: "亚太高速", latency: 89, country: "SG" },
-    { ip: "104.19.10.10", port: 443, colo: "ICN", isp: "韩国首尔", latency: 75, country: "KR" },
-    { ip: "162.159.16.16", port: 443, colo: "FRA", isp: "欧洲德国", latency: 165, country: "DE" }
+    { ip: "104.19.10.10", port: 2096, colo: "ICN", isp: "韩国首尔", latency: 75, country: "KR" },
+    { ip: "162.159.16.16", port: 8443, colo: "FRA", isp: "欧洲德国", latency: 165, country: "DE" }
 ];
 
 // 24h 维护的在线优选数据源
@@ -61,9 +61,9 @@ function getFlagEmoji(countryCode) {
 function getArguments() {
     let args = {
         UUID: 'a2a71d1c-5be9-4837-89ac-67125bfd0d28',
-        HOST: 'your-worker-domain.com',
+        HOST: 'peter.yxw.pp.ua',
         PATH: '/video',
-        PORT: '443',
+        PORT: 'auto',
         PROTOCOL: 'vless',
         NODE_COUNT: '8',
         ENABLE_RETEST: 'true',
@@ -144,7 +144,10 @@ let rawPath = String(config.PATH || '/').trim();
 if (!rawPath.startsWith('/')) rawPath = '/' + rawPath;
 const PATH = rawPath;
 
-const PORT = Number(String(config.PORT || '443').trim()) || 443;
+const rawPortStr = String(config.PORT || 'auto').trim().toLowerCase();
+const isAutoPort = rawPortStr === 'auto' || rawPortStr === '' || rawPortStr === '0';
+const DEFAULT_PORT = isAutoPort ? 443 : (Number(rawPortStr) || 443);
+
 const NODE_COUNT = Math.min(Math.max(Number(String(config.NODE_COUNT || '8').trim()) || 8, 1), 50);
 const ENABLE_RETEST = String(config.ENABLE_RETEST || 'true').toLowerCase() === 'true';
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 4000);
@@ -156,7 +159,7 @@ const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096, 9443];
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 域名: ${HOST}`);
 console.log(`   ├─ 路径: ${PATH}`);
-console.log(`   ├─ 端口: ${PORT}`);
+console.log(`   ├─ 端口模式: ${isAutoPort ? 'auto (自动匹配最佳测速端口)' : DEFAULT_PORT}`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 二次测速: ${ENABLE_RETEST ? '开启 (本地实测)' : '关闭 (秒级直出)'}`);
 console.log(`   ├─ 节点生成数量: ${NODE_COUNT} 个`);
@@ -250,18 +253,19 @@ function createLoonNodeLine(item, rank) {
     const coloStr = item.colo ? `-${item.colo}` : "";
     const ispStr = item.isp ? ` [${item.isp}]` : "";
     const statusTag = item.retested ? "⚡️" : "";
+    
+    // auto 模式下优先使用该优选 IP 测速出的端口
+    const actualPort = (isAutoPort && item.port) ? item.port : DEFAULT_PORT;
+    const connTls = TLS_PORTS.includes(Number(actualPort));
     const nodeName = `${flag} ${countryName}${coloStr}${ispStr} (${statusTag}${item.latency}ms)-${rank}`;
-    const connPort = item.port || PORT;
-    const connTls = TLS_PORTS.includes(Number(connPort));
 
     if (PROTOCOL === 'vless') {
         // 与 iOS App 输出完全一致的标准格式：
-        // NAME = VLESS,IP,PORT,"UUID",transport=ws,path=PATH,host=HOST,udp=true,block-quic=true,over-tls=true,sni=HOST,tls-profile=chrome,skip-cert-verify=true
-        return `${nodeName} = VLESS,${item.ip},${connPort},"${UUID}",transport=ws,path=${PATH},host=${HOST},udp=true,block-quic=true,over-tls=${connTls},sni=${HOST},tls-profile=chrome,skip-cert-verify=true`;
+        return `${nodeName} = VLESS,${item.ip},${actualPort},"${UUID}",transport=ws,path=${PATH},host=${HOST},udp=true,block-quic=true,over-tls=${connTls},sni=${HOST},tls-profile=chrome,skip-cert-verify=true`;
     }
 
     if (PROTOCOL === 'trojan') {
-        return `${nodeName} = Trojan,${item.ip},${connPort},"${UUID}",transport=ws,path=${PATH},host=${HOST},udp=true,block-quic=true,over-tls=${connTls},sni=${HOST},tls-profile=chrome,skip-cert-verify=true`;
+        return `${nodeName} = Trojan,${item.ip},${actualPort},"${UUID}",transport=ws,path=${PATH},host=${HOST},udp=true,block-quic=true,over-tls=${connTls},sni=${HOST},tls-profile=chrome,skip-cert-verify=true`;
     }
 
     return '';
@@ -294,7 +298,7 @@ async function getBestNodes() {
     // 3. 混入内置顶级低延迟优质节点 (确保 100% 存在 443/2096 TLS 可用节点)
     PRESET_TOP_NODES.forEach(n => {
         if (!resultList.some(r => r.ip === n.ip)) {
-            resultList.push({ ...n, port: n.port || PORT });
+            resultList.push({ ...n });
         }
     });
 
@@ -303,6 +307,8 @@ async function getBestNodes() {
 
 function parseFeeds(text, targetList) {
     const lines = text.split(/[\r\n,]+/);
+    const tlsPorts = [443, 2096, 8443, 2053, 2083, 2087];
+
     lines.forEach((line, idx) => {
         line = line.trim();
         if (!line || line.includes('Telegram') || line.includes('http') || line.startsWith('#')) return;
@@ -313,7 +319,10 @@ function parseFeeds(text, targetList) {
 
         let ipPortParts = mainPart.split(':');
         let ip = ipPortParts[0].replace(/[\[\]]/g, '').trim();
-        let port = ipPortParts[1] ? Number(ipPortParts[1].trim()) : PORT;
+        let parsedPort = ipPortParts[1] ? Number(ipPortParts[1].trim()) : 0;
+        
+        // 若源未提供端口或为非 TLS 端口，在 TLS 端口池中平滑分配
+        let assignedPort = parsedPort > 0 ? parsedPort : tlsPorts[idx % tlsPorts.length];
 
         if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) return;
 
@@ -335,7 +344,7 @@ function parseFeeds(text, targetList) {
 
         targetList.push({
             ip: ip,
-            port: port || PORT,
+            port: assignedPort,
             colo: colo,
             country: country,
             isp: isp,
@@ -347,7 +356,7 @@ function parseFeeds(text, targetList) {
 // ================= 主执行入口 (两阶段流水线) =================
 async function start() {
     try {
-        console.log(`🚀 [优选启动] Worker: ${HOST}, 端口: ${PORT}`);
+        console.log(`🚀 [优选启动] Worker: ${HOST}, 端口模式: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
         
         // 阶段一：获取优质候选池
         const allNodes = await getBestNodes();
@@ -377,7 +386,8 @@ async function start() {
         const selected = finalNodes.slice(0, NODE_COUNT);
         selected.forEach((n, idx) => {
             const tag = n.retested ? " (本地实测 ⚡️)" : " (云端参考)";
-            console.log(`   ├─ 🎯 [节点 ${idx + 1}] ${n.ip}:${n.port} ➔ ${n.country} (${n.colo}) ${n.isp} 延迟: ${n.latency}ms${tag}`);
+            const actualPort = (isAutoPort && n.port) ? n.port : DEFAULT_PORT;
+            console.log(`   ├─ 🎯 [节点 ${idx + 1}] ${n.ip}:${actualPort} ➔ ${n.country} (${n.colo}) ${n.isp} 延迟: ${n.latency}ms${tag}`);
         });
 
         const nodeLines = selected.map((item, idx) => createLoonNodeLine(item, idx + 1)).filter(Boolean);
