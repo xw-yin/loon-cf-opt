@@ -1,17 +1,17 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (严格实测 + 每地区 N 个节点 v5.0)
+ * Loon Cloudflare 优选节点智能生成器 (自定义测速规模 + 每地区 N 个节点 v5.1)
  * 
  * 核心升级：
- * 1. 【彻底剔除未实测通的 Timeout 节点】：
- *    - 开启二次实测后，【只输出本地 100% 成功通网的节点】，绝不掺杂未测通的保底节点！
- * 2. 【支持按“每个国家/地区保留 N 个节点”】：
- *    - 支持设置 `limit_per_country`（例如香港 2 个、日本 2 个、美国 2 个、新加坡 2 个）；
- *    - 自动按地区分组并优先保留每个地区实测延迟最低的最优节点；
- * 3. 【支持自定义优选源筛选与直连 Worker 端口自动继承】：
- *    - 100% 对齐 iOS 原生 Loon 节点输出标准。
+ * 1. 【支持自定义筛选规模（最大可筛选 200 个 IP）】：
+ *    - 用户可自由选择实测候选池规模：20、35、50、80、100、150、200 个 IP；
+ *    - 采用分批并发控制，防止大样本量压垮 iOS 单线程网络栈；
+ * 2. 【去除端口括号内的冗余说明】：
+ *    - 标签精简为清晰明了的“端口”；
+ * 3. 【严格实测与分地区优选】：
+ *    - 严格只输出 100% 成功连通节点，按每个地区设定上限保留。
  */
 
-console.log("=== [Loon CF 优选] 启动严格实测与分地区优选版本 (v5.0) ===");
+console.log("=== [Loon CF 优选] 启动大规模筛选与分地区优选版本 (v5.1) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -66,6 +66,7 @@ function getArguments() {
         PATH: '/video',
         PORT: 'auto',
         PROTOCOL: 'vless',
+        TEST_SCALE: '50',
         LIMIT_PER_COUNTRY: '2',
         TOTAL_LIMIT: '10',
         ENABLE_RETEST: 'true',
@@ -94,6 +95,7 @@ function getArguments() {
                 if (key === 'path') args.PATH = decoded;
                 if (key === 'port') args.PORT = decoded;
                 if (key === 'protocol') args.PROTOCOL = decoded;
+                if (key === 'test_scale' || key === 'test_count') args.TEST_SCALE = decoded;
                 if (key === 'limit_per_country' || key === 'country_limit') args.LIMIT_PER_COUNTRY = decoded;
                 if (key === 'total_limit' || key === 'node_count') args.TOTAL_LIMIT = decoded;
                 if (key === 'retest' || key === 'enable_retest') args.ENABLE_RETEST = decoded;
@@ -110,7 +112,9 @@ function getArguments() {
             if (isValid($argument.path)) args.PATH = String($argument.path).trim();
             if (isValid($argument.port)) args.PORT = String($argument.port).trim();
             if (isValid($argument.protocol)) args.PROTOCOL = String($argument.protocol).trim();
+            if (isValid($argument.test_scale)) args.TEST_SCALE = String($argument.test_scale).trim();
             if (isValid($argument.limit_per_country)) args.LIMIT_PER_COUNTRY = String($argument.limit_per_country).trim();
+            if (isValid($argument.total_limit)) args.TOTAL_LIMIT = String($argument.total_limit).trim();
             if (isValid($argument.node_count)) args.TOTAL_LIMIT = String($argument.node_count).trim();
             if (isValid($argument.retest)) args.ENABLE_RETEST = String($argument.retest).trim();
             if (isValid($argument.timeout)) args.TIMEOUT = String($argument.timeout).trim();
@@ -129,8 +133,9 @@ function getArguments() {
                     if (key === 'path') args.PATH = decoded;
                     if (key === 'port') args.PORT = decoded;
                     if (key === 'protocol') args.PROTOCOL = decoded;
+                    if (key === 'test_scale' || key === 'test_count') args.TEST_SCALE = decoded;
                     if (key === 'limit_per_country' || key === 'country_limit') args.LIMIT_PER_COUNTRY = decoded;
-                    if (key === 'node_count' || key === 'total_limit') args.TOTAL_LIMIT = decoded;
+                    if (key === 'total_limit' || key === 'node_count') args.TOTAL_LIMIT = decoded;
                     if (key === 'retest') args.ENABLE_RETEST = decoded;
                     if (key === 'timeout') args.TIMEOUT = decoded;
                     if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
@@ -153,8 +158,9 @@ const rawPortStr = String(config.PORT || 'auto').trim().toLowerCase();
 const isAutoPort = rawPortStr === 'auto' || rawPortStr === '' || rawPortStr === '0';
 const DEFAULT_PORT = isAutoPort ? 443 : (Number(rawPortStr) || 443);
 
-const LIMIT_PER_COUNTRY = Math.min(Math.max(Number(String(config.LIMIT_PER_COUNTRY || '2').trim()) || 2, 1), 10);
-const TOTAL_LIMIT = Math.min(Math.max(Number(String(config.TOTAL_LIMIT || '10').trim()) || 10, 1), 50);
+const TEST_SCALE = Math.min(Math.max(Number(String(config.TEST_SCALE || '50').trim()) || 50, 10), 200);
+const LIMIT_PER_COUNTRY = Math.min(Math.max(Number(String(config.LIMIT_PER_COUNTRY || '2').trim()) || 2, 1), 20);
+const TOTAL_LIMIT = Math.min(Math.max(Number(String(config.TOTAL_LIMIT || '10').trim()) || 10, 1), 100);
 const ENABLE_RETEST = String(config.ENABLE_RETEST || 'true').toLowerCase() === 'true';
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 4000);
 const PROTOCOL = String(config.PROTOCOL || 'vless').trim().toLowerCase();
@@ -165,8 +171,9 @@ const TLS_PORTS = [443, 8443, 2053, 2083, 2087, 2096, 9443];
 console.log(`🔍 [配置解析] 最终参数结果:`);
 console.log(`   ├─ 域名: ${HOST}`);
 console.log(`   ├─ 路径: ${PATH}`);
-console.log(`   ├─ 端口模式: ${isAutoPort ? 'auto (自动匹配最佳测速端口)' : DEFAULT_PORT}`);
+console.log(`   ├─ 端口: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
+console.log(`   ├─ 测速筛选规模: ${TEST_SCALE} 个 IP`);
 console.log(`   ├─ 每国家/地区上限: ${LIMIT_PER_COUNTRY} 个`);
 console.log(`   ├─ 节点总数上限: ${TOTAL_LIMIT} 个`);
 console.log(`   ├─ 二次实测过滤: ${ENABLE_RETEST ? '严格过滤 (只留全绿实测节点)' : '关闭'}`);
@@ -370,13 +377,20 @@ async function start() {
 
         let candidateNodes = allNodes;
 
-        // 阶段二：本地精准二次测速（严格实测）
+        // 阶段二：本地精准二次测速（支持最大 200 个 IP 分批并发实测）
         if (ENABLE_RETEST) {
-            const testPool = allNodes.slice(0, Math.min(allNodes.length, 35));
-            console.log(`⚡️ [阶段二：二次测速] 正在对前 ${testPool.length} 个候选节点进行本地实测...`);
+            const testPool = allNodes.slice(0, Math.min(allNodes.length, TEST_SCALE));
+            console.log(`⚡️ [阶段二：二次测速] 正在对前 ${testPool.length} 个候选节点进行本地实测 (每批 15 个)...`);
             
-            const retestTasks = testPool.map(node => testNodeLatency(node, PROBE_TIMEOUT));
-            const retestedResults = await Promise.all(retestTasks);
+            const batchSize = 15;
+            let retestedResults = [];
+
+            for (let i = 0; i < testPool.length; i += batchSize) {
+                const batch = testPool.slice(i, i + batchSize);
+                const batchTasks = batch.map(node => testNodeLatency(node, PROBE_TIMEOUT));
+                const batchRes = await Promise.all(batchTasks);
+                retestedResults.push(...batchRes);
+            }
 
             // 严格过滤：【只保留本地实测 100% 连通的节点】
             const successfulNodes = retestedResults.filter(n => n.retested);
