@@ -1,17 +1,15 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (自定义测速规模 + 每地区 N 个节点 v5.1)
+ * Loon Cloudflare 优选节点智能生成器 (纯按地区保留 + 200 规模实测 v5.2)
  * 
  * 核心升级：
- * 1. 【支持自定义筛选规模（最大可筛选 200 个 IP）】：
- *    - 用户可自由选择实测候选池规模：20、35、50、80、100、150、200 个 IP；
- *    - 采用分批并发控制，防止大样本量压垮 iOS 单线程网络栈；
- * 2. 【去除端口括号内的冗余说明】：
- *    - 标签精简为清晰明了的“端口”；
- * 3. 【严格实测与分地区优选】：
- *    - 严格只输出 100% 成功连通节点，按每个地区设定上限保留。
+ * 1. 【移除总节点数上限】：
+ *    - 纯粹按用户指定的【每个国家/地区保留节点数 (limit_per_country)】输出；
+ *    - 例如设为 2，只要有测通的地区（香港、台湾、日本、新加坡、韩国、美国、德国等）各输出前 2 个最优节点；
+ * 2. 【最大 200 个 IP 候选池大规模并发实测】；
+ * 3. 【100% 严格实测过滤，杜绝 Timeout】。
  */
 
-console.log("=== [Loon CF 优选] 启动大规模筛选与分地区优选版本 (v5.1) ===");
+console.log("=== [Loon CF 优选] 启动纯分地区优选版本 (v5.2) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -68,7 +66,6 @@ function getArguments() {
         PROTOCOL: 'vless',
         TEST_SCALE: '50',
         LIMIT_PER_COUNTRY: '2',
-        TOTAL_LIMIT: '10',
         ENABLE_RETEST: 'true',
         TIMEOUT: '1500',
         CUSTOM_SOURCE: ''
@@ -97,7 +94,6 @@ function getArguments() {
                 if (key === 'protocol') args.PROTOCOL = decoded;
                 if (key === 'test_scale' || key === 'test_count') args.TEST_SCALE = decoded;
                 if (key === 'limit_per_country' || key === 'country_limit') args.LIMIT_PER_COUNTRY = decoded;
-                if (key === 'total_limit' || key === 'node_count') args.TOTAL_LIMIT = decoded;
                 if (key === 'retest' || key === 'enable_retest') args.ENABLE_RETEST = decoded;
                 if (key === 'timeout') args.TIMEOUT = decoded;
                 if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
@@ -114,8 +110,6 @@ function getArguments() {
             if (isValid($argument.protocol)) args.PROTOCOL = String($argument.protocol).trim();
             if (isValid($argument.test_scale)) args.TEST_SCALE = String($argument.test_scale).trim();
             if (isValid($argument.limit_per_country)) args.LIMIT_PER_COUNTRY = String($argument.limit_per_country).trim();
-            if (isValid($argument.total_limit)) args.TOTAL_LIMIT = String($argument.total_limit).trim();
-            if (isValid($argument.node_count)) args.TOTAL_LIMIT = String($argument.node_count).trim();
             if (isValid($argument.retest)) args.ENABLE_RETEST = String($argument.retest).trim();
             if (isValid($argument.timeout)) args.TIMEOUT = String($argument.timeout).trim();
             if (isValid($argument.custom_source)) args.CUSTOM_SOURCE = String($argument.custom_source).trim();
@@ -135,7 +129,6 @@ function getArguments() {
                     if (key === 'protocol') args.PROTOCOL = decoded;
                     if (key === 'test_scale' || key === 'test_count') args.TEST_SCALE = decoded;
                     if (key === 'limit_per_country' || key === 'country_limit') args.LIMIT_PER_COUNTRY = decoded;
-                    if (key === 'total_limit' || key === 'node_count') args.TOTAL_LIMIT = decoded;
                     if (key === 'retest') args.ENABLE_RETEST = decoded;
                     if (key === 'timeout') args.TIMEOUT = decoded;
                     if (key === 'custom_source') args.CUSTOM_SOURCE = decoded;
@@ -160,7 +153,6 @@ const DEFAULT_PORT = isAutoPort ? 443 : (Number(rawPortStr) || 443);
 
 const TEST_SCALE = Math.min(Math.max(Number(String(config.TEST_SCALE || '50').trim()) || 50, 10), 200);
 const LIMIT_PER_COUNTRY = Math.min(Math.max(Number(String(config.LIMIT_PER_COUNTRY || '2').trim()) || 2, 1), 20);
-const TOTAL_LIMIT = Math.min(Math.max(Number(String(config.TOTAL_LIMIT || '10').trim()) || 10, 1), 100);
 const ENABLE_RETEST = String(config.ENABLE_RETEST || 'true').toLowerCase() === 'true';
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 4000);
 const PROTOCOL = String(config.PROTOCOL || 'vless').trim().toLowerCase();
@@ -174,8 +166,7 @@ console.log(`   ├─ 路径: ${PATH}`);
 console.log(`   ├─ 端口: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 测速筛选规模: ${TEST_SCALE} 个 IP`);
-console.log(`   ├─ 每国家/地区上限: ${LIMIT_PER_COUNTRY} 个`);
-console.log(`   ├─ 节点总数上限: ${TOTAL_LIMIT} 个`);
+console.log(`   ├─ 每国家/地区保留上限: ${LIMIT_PER_COUNTRY} 个`);
 console.log(`   ├─ 二次实测过滤: ${ENABLE_RETEST ? '严格过滤 (只留全绿实测节点)' : '关闭'}`);
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}******`);
 
@@ -366,7 +357,7 @@ function parseFeeds(text, targetList) {
     });
 }
 
-// ================= 主执行入口 (分地区限额 + 严格实测) =================
+// ================= 主执行入口 (纯分地区限额 + 严格实测) =================
 async function start() {
     try {
         console.log(`🚀 [优选启动] Worker: ${HOST}, 端口模式: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
@@ -407,7 +398,7 @@ async function start() {
         // 按延迟从低到高排序
         candidateNodes.sort((a, b) => a.latency - b.latency);
 
-        // 阶段三：按“每个国家/地区最多 N 个节点”进行智能分配
+        // 阶段三：纯按“每个国家/地区最多 N 个节点”进行智能提取（无全局总上限限制）
         let countryCounters = {};
         let filteredNodes = [];
 
@@ -417,9 +408,6 @@ async function start() {
             if (currentCount < LIMIT_PER_COUNTRY) {
                 countryCounters[cCode] = currentCount + 1;
                 filteredNodes.push(node);
-            }
-            if (filteredNodes.length >= TOTAL_LIMIT) {
-                break;
             }
         }
 
