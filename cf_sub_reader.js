@@ -103,7 +103,7 @@ function getArguments() {
         PORT: 'auto',
         PROTOCOL: 'vless',
         SAMPLE_MODE: 'order',
-        TEST_SCALE: '35',
+        TEST_SCALE: '200',
         LIMIT_PER_COUNTRY: '2',
         ENABLE_RETEST: 'true',
         TIMEOUT: '1500',
@@ -194,7 +194,7 @@ const isAutoPort = rawPortStr === 'auto' || rawPortStr === '' || rawPortStr === 
 const DEFAULT_PORT = isAutoPort ? 443 : (Number(rawPortStr) || 443);
 
 const SAMPLE_MODE = String(config.SAMPLE_MODE || 'order').trim().toLowerCase();
-const TEST_SCALE = Math.min(Math.max(Number(String(config.TEST_SCALE || '35').trim()) || 35, 10), 100);
+const TEST_SCALE = Math.min(Math.max(Number(String(config.TEST_SCALE || '200').trim()) || 200, 10), 500);
 const LIMIT_PER_COUNTRY = Math.min(Math.max(Number(String(config.LIMIT_PER_COUNTRY || '2').trim()) || 2, 1), 20);
 const ENABLE_RETEST = String(config.ENABLE_RETEST || 'true').toLowerCase() === 'true';
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 3000);
@@ -432,8 +432,10 @@ async function getBestNodes() {
     // 去重
     const uniqueMap = new Map();
     resultList.forEach(item => {
-        if (!uniqueMap.has(item.ip)) {
-            uniqueMap.set(item.ip, item);
+        // 同一 IP 的不同端口可能对应不同监听服务，必须分别保留并测速。
+        const key = `${item.ip}:${Number(item.port) || 443}`;
+        if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, item);
         }
     });
 
