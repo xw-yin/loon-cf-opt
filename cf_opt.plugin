@@ -3,11 +3,11 @@ name = ⚡️ Cloudflare 动态优选与分地区生成器 (严格实测版)
 desc = 拦截虚拟订阅请求，支持按每个国家地区保留 N 个节点（如港2个、日2个、美2个等），严格实测过滤并输出 100% 全绿可用的 Loon 原生节点！
 author = Antigravity
 homepage = https://github.com/xw-yin/loon-cf-opt
-version = 6.1.0
+version = 6.2.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时测速并返回最优节点
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=61, argument=[{uuid},{host},{path},{port},{protocol},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=40, tag=CF实时优选节点生成
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=62, argument=[{uuid},{host},{path},{port},{protocol},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=45, tag=CF实时优选节点生成
 
 [Argument]
 uuid = input, "a2a71d1c-5be9-4837-89ac-67125bfd0d28", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
