@@ -35,6 +35,8 @@ const COUNTRY_NAME_MAP = {
 const CM_TXT_SOURCE = "https://zip.cm.edu.kg/all.txt";
 const CM_JSON_SOURCE = "https://zip.cm.edu.kg/all.json";
 const DATA_SOURCE_TIMEOUT_MS = 5000;
+// 脚本自身的请求不应受当前全局代理/分流策略影响，避免把代理链路延迟算进测速结果。
+const HTTP_REQUEST_NODE = "DIRECT";
 
 // 内置预选三网 Anycast 种子
 const PRESET_TOP_NODES = [
@@ -233,6 +235,7 @@ function fetchUrl(url, timeoutMs) {
         $httpClient.get({
             url: url,
             timeout: timeout,
+            node: HTTP_REQUEST_NODE,
             headers: {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"
             }
@@ -273,6 +276,7 @@ function testNodeLatency(node, timeoutMs) {
         $httpClient.get({
             url: probeUrl,
             timeout: timeout,
+            node: HTTP_REQUEST_NODE,
             headers: {
                 "Host": "speed.cloudflare.com",
                 "User-Agent": "Mozilla/5.0"
