@@ -1,17 +1,18 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (抽样方案选择 + 严控测速规模 v6.5)
+ * Loon Cloudflare 优选节点智能生成器 (详情增强 + 最大 100 规模 + 全能自定义源解析 v6.6)
  * 
  * 核心升级：
- * 1. 【新增“抽样方案”选项】：
- *    - `order` (顺序抽样)：严格按 CM 官方最优维护顺序与常用地区优先级依次提取；
- *    - `random` (随机抽样)：在全库 15,000+ 节点中随机洗牌抽样，探索更多小众优质 IP；
- * 2. 【剔除 100 个以上测速规模（彻底避免超时）】：
- *    - 测速规模精简为安全高效档位：`15`、`25`、`35`、`50`、`65`、`80`；
- *    - 确保在 iOS 脚本 15~30 秒限时内 100% 极速跑完并返回结果；
- * 3. 【真实真机二次实测与每地区 N 个节点优选】。
+ * 1. 【测速筛选规模上限调整为 100】：
+ *    - 支持档位：`15`、`25`、`35`、`50`、`70`、`100`；
+ * 2. 【全能通用“自定义优选源”解析器（完全无需拘泥特定格式）】：
+ *    - 支持形式 1：直接输入 IP 或 IP 段（如 `1.1.1.1, 104.16.80.80:2096#香港, 173.245.48.0/20`）；
+ *    - 支持形式 2：`https://.../all.txt` 格式（如 `IP:Port#国家` 或 `IP#国家`）；
+ *    - 支持形式 3：`https://.../all.json` 格式（CM 官方 JSON 结构）；
+ *    - 支持形式 4：普通纯文本 URL 列表（每行一个 IP 或 CIDR）；
+ * 3. 【详尽插件说明与参数引导】。
  */
 
-console.log("=== [Loon CF 优选] 启动抽样方案与防超时版本 (v6.5.0) ===");
+console.log("=== [Loon CF 优选] 启动全能自定义源与 100 规模版 (v6.6.0) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -53,6 +54,41 @@ function getFlagEmoji(countryCode) {
     if (code.length !== 2) return "🌐";
     const base = 127397;
     return String.fromCodePoint(base + code.charCodeAt(0)) + String.fromCodePoint(base + code.charCodeAt(1));
+}
+
+// ================= CIDR 网段随机抽样算法 =================
+function ipToUInt32(ip) {
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return null;
+    return ((parts[0] << 24) >>> 0) + ((parts[1] << 16) >>> 0) + ((parts[2] << 8) >>> 0) + (parts[3] >>> 0);
+}
+
+function uint32ToIP(num) {
+    return [
+        (num >>> 24) & 255,
+        (num >>> 16) & 255,
+        (num >>> 8) & 255,
+        num & 255
+    ].join('.');
+}
+
+function sampleIPFromCIDR(cidr) {
+    const parts = cidr.split('/');
+    if (parts.length !== 2) return parts[0];
+    const baseIP = parts[0].trim();
+    const prefix = parseInt(parts[1].trim(), 10);
+    if (isNaN(prefix) || prefix < 0 || prefix > 32) return baseIP;
+
+    const ipNum = ipToUInt32(baseIP);
+    if (ipNum === null) return null;
+
+    const hostBits = 32 - prefix;
+    const hostCount = hostBits >= 32 ? 0xFFFFFFFF : (1 << hostBits) - 1;
+    const randomOffset = Math.floor(Math.random() * (hostCount + 1));
+    const mask = prefix === 0 ? 0 : (~((1 << hostBits) - 1)) >>> 0;
+    const network = (ipNum & mask) >>> 0;
+
+    return uint32ToIP((network + randomOffset) >>> 0);
 }
 
 // ================= 参数解析 =================
@@ -154,8 +190,8 @@ const rawPortStr = String(config.PORT || 'auto').trim().toLowerCase();
 const isAutoPort = rawPortStr === 'auto' || rawPortStr === '' || rawPortStr === '0';
 const DEFAULT_PORT = isAutoPort ? 443 : (Number(rawPortStr) || 443);
 
-const SAMPLE_MODE = String(config.SAMPLE_MODE || 'order').trim().toLowerCase(); // 'order' or 'random'
-const TEST_SCALE = Math.min(Math.max(Number(String(config.TEST_SCALE || '35').trim()) || 35, 10), 80); // 严控最大 80
+const SAMPLE_MODE = String(config.SAMPLE_MODE || 'order').trim().toLowerCase();
+const TEST_SCALE = Math.min(Math.max(Number(String(config.TEST_SCALE || '35').trim()) || 35, 10), 100); // 最大支持 100
 const LIMIT_PER_COUNTRY = Math.min(Math.max(Number(String(config.LIMIT_PER_COUNTRY || '2').trim()) || 2, 1), 20);
 const ENABLE_RETEST = String(config.ENABLE_RETEST || 'true').toLowerCase() === 'true';
 const PROBE_TIMEOUT = Math.min(Math.max(Number(String(config.TIMEOUT || '1500').trim()) || 1500, 300), 3500);
@@ -170,7 +206,7 @@ console.log(`   ├─ 路径: ${PATH}`);
 console.log(`   ├─ 端口模式: ${isAutoPort ? 'auto' : DEFAULT_PORT}`);
 console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 抽样方案: ${SAMPLE_MODE === 'random' ? '随机抽样 🎲' : '顺序抽样 📋 (推荐)'}`);
-console.log(`   ├─ 测速筛选规模: ${TEST_SCALE} 个 IP (安全防超时)`);
+console.log(`   ├─ 测速筛选规模: ${TEST_SCALE} 个 IP (最大支持 100)`);
 console.log(`   ├─ 每国家/地区保留上限: ${LIMIT_PER_COUNTRY} 个`);
 console.log(`   ├─ 严格官方边缘校验: ${ENABLE_RETEST ? '开启 (必须含 colo 官方签名)' : '关闭'}`);
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}******`);
@@ -288,22 +324,23 @@ function createLoonNodeLine(item, rank) {
     return '';
 }
 
-// ================= 收集全网 15,000+ 节点并按模式抽样 =================
+// ================= 全能优选节点收集器 =================
 async function getBestNodes() {
     let resultList = [];
 
-    // 1. 自定义源优先
+    // 1. 自定义源优先 (支持 URL 链接或直接填入的逗号/换行分隔 IP)
     if (CUSTOM_SOURCE) {
         if (CUSTOM_SOURCE.startsWith('http://') || CUSTOM_SOURCE.startsWith('https://')) {
-            console.log(`📡 [数据源] 拉取用户自定义优选源: ${CUSTOM_SOURCE}`);
-            const data = await fetchUrl(CUSTOM_SOURCE, 3000);
-            if (data) parseAnyFeed(data, resultList);
+            console.log(`📡 [自定义源] 拉取远端优选源: ${CUSTOM_SOURCE}`);
+            const data = await fetchUrl(CUSTOM_SOURCE, 3500);
+            if (data) parseUniversalFeed(data, resultList);
         } else {
-            parseAnyFeed(CUSTOM_SOURCE, resultList);
+            console.log(`📡 [自定义源] 解析用户填入的 IP/CIDR 列表...`);
+            parseUniversalFeed(CUSTOM_SOURCE, resultList);
         }
     }
 
-    // 2. 优先拉取 CM 全球 15,700+ 极速纯文本源
+    // 2. 默认拉取 CM 全球 15,700+ 极速纯文本源
     if (resultList.length === 0) {
         console.log(`📡 [数据源] 正在从 ${CM_TXT_SOURCE} 拉取全球 15,700+ 实时节点...`);
         const txtData = await fetchUrl(CM_TXT_SOURCE, 3500);
@@ -333,10 +370,8 @@ async function getBestNodes() {
     const priorityCountries = ["HK", "TW", "JP", "KR", "SG", "US", "DE", "GB", "NL", "FR", "CA", "AU"];
     
     if (SAMPLE_MODE === 'random') {
-        // 随机抽样：打乱顺序
         resultList.sort(() => Math.random() - 0.5);
     } else {
-        // 顺序抽样：亚太主力优先，保持源列表次序
         resultList.sort((a, b) => {
             let prioA = priorityCountries.includes(a.country) ? 1 : 0;
             let prioB = priorityCountries.includes(b.country) ? 1 : 0;
@@ -356,6 +391,77 @@ async function getBestNodes() {
     const finalCandidates = Array.from(uniqueMap.values());
     console.log(`📊 [候选池] 整理出 ${finalCandidates.length} 个独立候选 IP (模式: ${SAMPLE_MODE})`);
     return finalCandidates;
+}
+
+// ================= 全能通用解析函数 (自动兼容 TXT, JSON, CIDR, CSV, IP列表) =================
+function parseUniversalFeed(text, targetList) {
+    if (!text || typeof text !== 'string') return;
+    const trimmed = text.trim();
+
+    // 1. 若为 JSON 结构
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            parseCmJson(trimmed, targetList);
+            if (targetList.length > 0) return;
+        } catch (_) {}
+    }
+
+    // 2. 纯文本 / CSV / 多行 / CIDR 解析
+    const lines = trimmed.split(/[\r\n,]+/);
+    const tlsPorts = [2096, 443, 8443, 2053, 2083, 2087];
+
+    lines.forEach((line, idx) => {
+        line = line.trim();
+        if (!line || line.startsWith('#') || line.includes('Telegram')) return;
+
+        let parts = line.split('#');
+        let mainPart = parts[0].trim();
+        let tag = parts[1] ? parts[1].trim() : '';
+
+        // 处理 CIDR 网段 (例如 173.245.48.0/20)
+        if (mainPart.includes('/')) {
+            for (let s = 0; s < 5; s++) {
+                const sampledIp = sampleIPFromCIDR(mainPart);
+                if (sampledIp) {
+                    targetList.push({
+                        ip: sampledIp,
+                        port: tlsPorts[(idx + s) % tlsPorts.length],
+                        colo: "AUTO",
+                        country: "HK",
+                        isp: "CIDR优选",
+                        latency: 60 + (idx % 10) * 8
+                    });
+                }
+            }
+            return;
+        }
+
+        // 处理 IP 或 IP:Port
+        let ipPort = mainPart.split(':');
+        let ip = ipPort[0].replace(/[\[\]]/g, '').trim();
+        let port = Number(ipPort[1]) || tlsPorts[idx % tlsPorts.length];
+
+        if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) return;
+
+        let country = "HK";
+        if (tag.length === 2 && /^[A-Za-z]{2}$/.test(tag)) {
+            country = tag.toUpperCase();
+        } else if (tag.includes('香港') || tag.includes('HK')) country = "HK";
+        else if (tag.includes('台湾') || tag.includes('TW')) country = "TW";
+        else if (tag.includes('日本') || tag.includes('JP')) country = "JP";
+        else if (tag.includes('韩国') || tag.includes('KR')) country = "KR";
+        else if (tag.includes('新加坡') || tag.includes('SG')) country = "SG";
+        else if (tag.includes('美国') || tag.includes('US')) country = "US";
+
+        targetList.push({
+            ip: ip,
+            port: port,
+            colo: "AUTO",
+            country: country,
+            isp: tag || "自定义优选",
+            latency: 55 + (idx % 10) * 8
+        });
+    });
 }
 
 // 解析 CM all.txt
@@ -390,16 +496,16 @@ function parseCmTxt(text, targetList) {
 function parseCmJson(jsonString, targetList) {
     try {
         const obj = JSON.parse(jsonString);
-        const dataArr = obj.data || [];
+        const dataArr = obj.data || (Array.isArray(obj) ? obj : []);
         const tlsPorts = [2096, 443, 8443, 2053, 2083, 2087];
 
         dataArr.forEach((item, idx) => {
-            const ip = item.ip;
+            const ip = item.ip || item.address;
             if (!ip || !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) return;
 
-            const ports = Array.isArray(item.port) ? item.port : [443];
+            const ports = Array.isArray(item.port) ? item.port : (item.port ? [item.port] : [443]);
             const meta = item.meta || {};
-            const country = (meta.country || "HK").toUpperCase();
+            const country = (meta.country || item.country || "HK").toUpperCase();
             
             let colo = "";
             if (meta.colo && typeof meta.colo === 'object' && meta.colo.iata) {
@@ -410,8 +516,8 @@ function parseCmJson(jsonString, targetList) {
 
             let validPort = 443;
             for (let p of ports) {
-                if (tlsPorts.includes(p)) {
-                    validPort = p;
+                if (tlsPorts.includes(Number(p))) {
+                    validPort = Number(p);
                     break;
                 }
             }
@@ -421,20 +527,12 @@ function parseCmJson(jsonString, targetList) {
                 port: validPort,
                 colo: colo || "CM",
                 country: country,
-                isp: meta.asOrganization || meta.country_cn || "CM加速",
+                isp: meta.asOrganization || meta.country_cn || "优选节点",
                 latency: 60 + (idx % 10) * 8
             });
         });
     } catch (e) {
         console.log("⚠️ [JSON解析异常] 回退流式处理");
-    }
-}
-
-function parseAnyFeed(text, targetList) {
-    if (text.trim().startsWith('{')) {
-        parseCmJson(text, targetList);
-    } else {
-        parseCmTxt(text, targetList);
     }
 }
 
@@ -448,7 +546,7 @@ async function start() {
 
         let candidateNodes = allNodes;
 
-        // 阶段二：本地精准二次测速（15 并发流水线，严控规模最大 80）
+        // 阶段二：本地精准二次测速（15 并发流水线，支持最大 100 规模）
         if (ENABLE_RETEST) {
             const testPool = allNodes.slice(0, Math.min(allNodes.length, TEST_SCALE));
             console.log(`⚡️ [阶段二：二次测速] 正在对候选池中前 ${testPool.length} 个 IP 进行本地实测 (每批 15 个)...`);
