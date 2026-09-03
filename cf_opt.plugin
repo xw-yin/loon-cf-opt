@@ -6,7 +6,7 @@
 #!system = iOS,iPadOS,macOS,tvOS
 #!tag = 节点优选,订阅转换,Cloudflare
 #!type = normal
-#!version = 7.4.0
+#!version = 7.5.0
 
 [Argument]
 uuid = input, "a2a71d1c-5be9-4837-89ac-67125bfd0d28", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
@@ -23,7 +23,7 @@ custom_source = input, "", tag=自定义优选源, desc=选填：支持逗号/�
 
 [Script]
 # HTTP 重写拦截：专属虚拟订阅地址
-http-request ^https?:\/\/best\.ip\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=74, argument=[{uuid},{host},{path},{port},{protocol},{sample_mode},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=50, tag=CF实时优选节点生成
+http-request ^https?:\/\/best\.ip\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=75, argument=[{uuid},{host},{path},{port},{protocol},{sample_mode},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=50, tag=CF实时优选节点生成
 
 [Mitm]
 # 解密专属虚拟订阅域名

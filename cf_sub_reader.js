@@ -1,18 +1,18 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (CF-RAY / 源数据机房回退 + 极速打通版 v7.4)
+ * Loon Cloudflare 优选节点智能生成器 (精准毫秒超时 + 官方边缘实测版 v7.5)
  * 
  * 核心升级：
- * 1. 【调通但未拿到 colo= 时，自动回退提取源数据携带的 colo/国家】：
+ * 1. 【修复原生请求超时单位】：
+ *    - 修复 Loon 底层 $httpClient 超时单位误传秒数导致的 7ms 即时断连熔断；
+ *    - 彻底打通全球 15,700+ 实时候选库拉取与毫秒级高并发测速！
+ * 2. 【调通但未拿到 colo= 时，自动回退提取源数据携带的 colo/国家】：
  *    - 优先从返回 Body 的 `colo=` 提取真实机房；
- *    - 其次从响应头 `cf-ray: xxx-HKG` 提取真实机房（即使 301/302 重定向也能秒提）；
- *    - 若均未返回 colo，但网络已调通（status >= 200 && status < 500 或有 cloudflare 响应）：
- *      👉 **直接继承数据源本身携带的机房 (node.colo) 与国家 (node.country)**！
- * 2. 【大幅提高测速通过率】：
- *    - 只要 IP 真实连通且响应迅速，绝不因机房代码匹配缺失而废弃优质低延迟节点；
+ *    - 其次从响应头 `cf-ray: xxx-HKG` 提取真实机房；
+ *    - 若均未返回 colo，但网络已调通：直接继承数据源本身携带的机房 (node.colo) 与国家 (node.country)！
  * 3. 【真实极速测速与全能自定义源】。
  */
 
-console.log("=== [Loon CF 优选] 启动 CF-RAY/源数据机房回退版本 (v7.4.0) ===");
+console.log("=== [Loon CF 优选] 启动精准毫秒超时与稳定测速版本 (v7.5.0) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -34,6 +34,7 @@ const COUNTRY_NAME_MAP = {
 // CM 全球数据库权威端点
 const CM_TXT_SOURCE = "https://zip.cm.edu.kg/all.txt";
 const CM_JSON_SOURCE = "https://zip.cm.edu.kg/all.json";
+const DATA_SOURCE_TIMEOUT_MS = 5000;
 
 // 内置预选三网 Anycast 种子
 const PRESET_TOP_NODES = [
@@ -212,7 +213,14 @@ console.log(`   ├─ 官方边缘实测: ${ENABLE_RETEST ? '开启 (自适应�
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}******`);
 
 // ================= 网络请求 Promise =================
+function normalizeTimeoutMs(timeoutMs, fallbackMs) {
+    const value = Number(timeoutMs);
+    if (!Number.isFinite(value) || value <= 0) return fallbackMs;
+    return Math.max(1, Math.round(value));
+}
+
 function fetchUrl(url, timeoutMs) {
+    const timeout = normalizeTimeoutMs(timeoutMs, DATA_SOURCE_TIMEOUT_MS);
     return new Promise((resolve) => {
         let isDone = false;
         const timer = setTimeout(() => {
@@ -220,11 +228,11 @@ function fetchUrl(url, timeoutMs) {
                 isDone = true;
                 resolve('');
             }
-        }, timeoutMs || 3500);
+        }, timeout);
 
         $httpClient.get({
             url: url,
-            timeout: (timeoutMs ? timeoutMs / 1000 : 3.5),
+            timeout: timeout,
             headers: {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"
             }
@@ -247,6 +255,7 @@ let debugLogCount = 0;
 
 // ================= 自适应 Cloudflare 官方边缘实测探针 =================
 function testNodeLatency(node, timeoutMs) {
+    const timeout = normalizeTimeoutMs(timeoutMs, 1500);
     return new Promise((resolve) => {
         let finished = false;
         const startTime = Date.now();
@@ -259,11 +268,11 @@ function testNodeLatency(node, timeoutMs) {
                 finished = true;
                 resolve({ ...node, retested: false });
             }
-        }, timeoutMs);
+        }, timeout);
 
         $httpClient.get({
             url: probeUrl,
-            timeout: Math.max(1.0, timeoutMs / 1000),
+            timeout: timeout,
             headers: {
                 "Host": "speed.cloudflare.com",
                 "User-Agent": "Mozilla/5.0"
@@ -362,7 +371,7 @@ async function getBestNodes() {
     if (CUSTOM_SOURCE) {
         if (CUSTOM_SOURCE.startsWith('http://') || CUSTOM_SOURCE.startsWith('https://')) {
             console.log(`📡 [自定义源] 拉取远端优选源: ${CUSTOM_SOURCE}`);
-            const data = await fetchUrl(CUSTOM_SOURCE, 3000);
+            const data = await fetchUrl(CUSTOM_SOURCE, DATA_SOURCE_TIMEOUT_MS);
             if (data) parseUniversalFeed(data, resultList);
         } else {
             console.log(`📡 [自定义源] 解析用户填入的 IP/CIDR 列表...`);
@@ -373,7 +382,7 @@ async function getBestNodes() {
     // 2. 默认拉取 CM 全球 15,700+ 极速纯文本源
     if (resultList.length === 0) {
         console.log(`📡 [数据源] 正在从 ${CM_TXT_SOURCE} 拉取全球 15,700+ 实时节点...`);
-        const txtData = await fetchUrl(CM_TXT_SOURCE, 3000);
+        const txtData = await fetchUrl(CM_TXT_SOURCE, DATA_SOURCE_TIMEOUT_MS);
         if (txtData) {
             parseCmTxt(txtData, resultList);
             console.log(`📦 [数据源] 成功解析 CM 节点库，共载入 ${resultList.length} 个候选节点`);
@@ -383,7 +392,7 @@ async function getBestNodes() {
     // 3. 兜底拉取 CM all.json (如果 txt 不可用)
     if (resultList.length === 0) {
         console.log(`📡 [数据源] 回退拉取 ${CM_JSON_SOURCE}...`);
-        const jsonData = await fetchUrl(CM_JSON_SOURCE, 3500);
+        const jsonData = await fetchUrl(CM_JSON_SOURCE, DATA_SOURCE_TIMEOUT_MS);
         if (jsonData) {
             parseCmJson(jsonData, resultList);
         }
