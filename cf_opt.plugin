@@ -3,11 +3,11 @@ name = ⚡️ Cloudflare 动态优选与分地区生成器 (严格实测版)
 desc = 拦截虚拟订阅请求，支持按每个国家地区保留 N 个节点（如港2个、日2个、美2个等），严格实测过滤并输出 100% 全绿可用的 Loon 原生节点！
 author = Antigravity
 homepage = https://github.com/xw-yin/loon-cf-opt
-version = 6.2.0
+version = 6.3.0
 
 [Script]
 # HTTP 重写拦截：拦截对虚拟订阅地址的访问，动态实时测速并返回最优节点
-http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=62, argument=[{uuid},{host},{path},{port},{protocol},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=45, tag=CF实时优选节点生成
+http-request ^https?:\/\/httpbin\.org\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=63, argument=[{uuid},{host},{path},{port},{protocol},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=45, tag=CF实时优选节点生成
 
 [Argument]
 uuid = input, "a2a71d1c-5be9-4837-89ac-67125bfd0d28", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
@@ -20,7 +20,7 @@ retest = select, "true", "false", tag=开启严格本地二次实测, desc=开�
 limit_per_country = select, "2", "1", "3", "4", "5", tag=每个国家/地区保留节点数, desc=如设为 2，则香港/台湾/日本/新加坡/美国等每个有可用节点的地区各保留 2 个最优节点
 timeout = select, "1500", "1000", "2000", "3000", tag=二次测速超时 (ms), desc=单节点二次探测最大允许时间
 custom_source = input, "", tag=自定义优选源, desc=选填：用英文逗号分隔的IP或存放优选IP的URL链接
-
+ 
 [MITM]
 # 必须解密目标测试域名，以劫持我们的虚拟订阅路径
 hostname = httpbin.org
