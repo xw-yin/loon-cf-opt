@@ -1,17 +1,18 @@
 /**
- * Loon Cloudflare 优选节点智能生成器 (自适应极速探针 + 诊断透传版 v7.3)
+ * Loon Cloudflare 优选节点智能生成器 (CF-RAY / 源数据机房回退 + 极速打通版 v7.4)
  * 
  * 核心升级：
- * 1. 【彻底修复 Loon 脚本沙盒中 $httpClient 探针 0 成功率问题】：
- *    - 增加 Loon 官方标准参数：`timeout: Math.floor(timeoutMs / 1000)`，防止外挂 timer 先于内部网络库超时；
- *    - 采用自适应协议头：自动探测 HTTP 与 HTTPS 双通路；
- *    - 修复响应判断：放宽针对状态码或头的匹配，只要拿到 Cloudflare 边缘特征（`colo=` 或 `server: cloudflare`）即算打通！
- * 2. 【智能调试日志】：
- *    - 在控制台打印前 3 个探测的真实返回状态与原因，一目了然！
+ * 1. 【调通但未拿到 colo= 时，自动回退提取源数据携带的 colo/国家】：
+ *    - 优先从返回 Body 的 `colo=` 提取真实机房；
+ *    - 其次从响应头 `cf-ray: xxx-HKG` 提取真实机房（即使 301/302 重定向也能秒提）；
+ *    - 若均未返回 colo，但网络已调通（status >= 200 && status < 500 或有 cloudflare 响应）：
+ *      👉 **直接继承数据源本身携带的机房 (node.colo) 与国家 (node.country)**！
+ * 2. 【大幅提高测速通过率】：
+ *    - 只要 IP 真实连通且响应迅速，绝不因机房代码匹配缺失而废弃优质低延迟节点；
  * 3. 【真实极速测速与全能自定义源】。
  */
 
-console.log("=== [Loon CF 优选] 启动自适应极速探针版本 (v7.3.0) ===");
+console.log("=== [Loon CF 优选] 启动 CF-RAY/源数据机房回退版本 (v7.4.0) ===");
 
 // 150+ 全球 IATA 机场代码 -> 国家 ISO 映射
 const COLO_TO_COUNTRY = {
@@ -207,7 +208,7 @@ console.log(`   ├─ 协议: ${PROTOCOL}`);
 console.log(`   ├─ 抽样方案: ${SAMPLE_MODE === 'random' ? '随机抽样 🎲' : '顺序抽样 📋 (推荐)'}`);
 console.log(`   ├─ 测速筛选规模: ${TEST_SCALE} 个 IP`);
 console.log(`   ├─ 每国家/地区保留上限: ${LIMIT_PER_COUNTRY} 个`);
-console.log(`   ├─ 官方边缘实测: ${ENABLE_RETEST ? '开启 (自适应探针)' : '关闭'}`);
+console.log(`   ├─ 官方边缘实测: ${ENABLE_RETEST ? '开启 (自适应回退)' : '关闭'}`);
 console.log(`   └─ 凭据: ${UUID.substring(0, 8)}******`);
 
 // ================= 网络请求 Promise =================
@@ -244,14 +245,13 @@ function fetchUrl(url, timeoutMs) {
 // 调试计数器
 let debugLogCount = 0;
 
-// ================= 自适应 Cloudflare 官方边缘极速实测探针 =================
+// ================= 自适应 Cloudflare 官方边缘实测探针 =================
 function testNodeLatency(node, timeoutMs) {
     return new Promise((resolve) => {
         let finished = false;
         const startTime = Date.now();
         const ipHost = node.ip.includes(':') ? `[${node.ip}]` : node.ip;
         
-        // 探针 URL：直连边缘 IP
         const probeUrl = `http://${ipHost}/cdn-cgi/trace`;
 
         const timer = setTimeout(() => {
@@ -274,6 +274,7 @@ function testNodeLatency(node, timeoutMs) {
                 clearTimeout(timer);
                 const elapsed = Date.now() - startTime;
                 const statusCode = resp ? (resp.status || resp.statusCode || 0) : 0;
+                const headers = resp ? (resp.headers || {}) : {};
 
                 // 打印前 3 个探针详细诊断
                 if (debugLogCount < 3) {
@@ -282,36 +283,43 @@ function testNodeLatency(node, timeoutMs) {
                     console.log(`🔎 [探针调试] IP ${node.ip} ➔ status=${statusCode}, err=${err || 'none'}, colo=${hasColo}, 耗时=${elapsed}ms`);
                 }
 
-                // 核心判定：
-                // 1. 无错误且收到包含 colo= 的数据
-                // 2. 或者响应头带有 server: cloudflare 且能在响应中解出机房
-                if (!err && data && typeof data === 'string' && data.includes("colo=")) {
-                    let colo = "";
-                    let loc = "";
-                    data.split("\n").forEach(line => {
-                        let trimmed = line.trim();
-                        if (trimmed.startsWith("colo=")) colo = trimmed.substring(5).toUpperCase();
-                        if (trimmed.startsWith("loc=")) loc = trimmed.substring(4).toUpperCase();
-                    });
+                // 核心判定：无网络错误，且状态码正常（200~499 均证明 IP 本地真实连通）
+                if (!err && statusCode >= 200 && statusCode < 500) {
+                    let detectedColo = "";
+                    let detectedLoc = "";
 
-                    if (colo) {
-                        const countryCode = COLO_TO_COUNTRY[colo] || loc || node.country || "HK";
-                        resolve({
-                            ...node,
-                            latency: elapsed,
-                            colo: colo,
-                            country: countryCode,
-                            retested: true
+                    // 1. 尝试从 Body 的 "colo=XXX" 提取
+                    if (data && typeof data === 'string') {
+                        data.split("\n").forEach(line => {
+                            let trimmed = line.trim();
+                            if (trimmed.startsWith("colo=")) detectedColo = trimmed.substring(5).toUpperCase();
+                            if (trimmed.startsWith("loc=")) detectedLoc = trimmed.substring(4).toUpperCase();
                         });
-                        return;
                     }
-                }
 
-                // 容错判定：若 status 正常 (200~302) 且包含 cf-ray / cloudflare 特征
-                if (!err && statusCode >= 200 && statusCode < 400) {
+                    // 2. 尝试从 Response Header "cf-ray: xxxx-HKG" 提取
+                    if (!detectedColo) {
+                        for (let k of Object.keys(headers)) {
+                            if (k.toLowerCase() === 'cf-ray' && headers[k]) {
+                                let rayVal = String(headers[k]).trim();
+                                let rayParts = rayVal.split('-');
+                                if (rayParts.length > 1) {
+                                    detectedColo = rayParts[rayParts.length - 1].toUpperCase();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. 【调通但未拿到 colo 时，使用源数据中携带的 colo 与 country】
+                    const finalColo = detectedColo || (node.colo !== 'AUTO' && node.colo !== 'CM' ? node.colo : '') || "AUTO";
+                    const finalCountry = COLO_TO_COUNTRY[finalColo] || detectedLoc || node.country || "HK";
+
                     resolve({
                         ...node,
                         latency: elapsed,
+                        colo: finalColo,
+                        country: finalCountry,
                         retested: true
                     });
                     return;
@@ -327,7 +335,7 @@ function testNodeLatency(node, timeoutMs) {
 function createLoonNodeLine(item, rank) {
     const flag = getFlagEmoji(item.country);
     const countryName = COUNTRY_NAME_MAP[item.country] || item.country;
-    const coloStr = item.colo ? `-${item.colo}` : "";
+    const coloStr = (item.colo && item.colo !== 'AUTO' && item.colo !== 'CM') ? `-${item.colo}` : "";
     const ispStr = item.isp ? ` [${item.isp}]` : "";
     const statusTag = item.retested ? "⚡️" : "";
     
@@ -501,7 +509,7 @@ function parseCmTxt(text, targetList) {
         targetList.push({
             ip: ip,
             port: port,
-            colo: "CM",
+            colo: country, // 源数据携带的地区/机房标记
             country: country,
             isp: "CM全球优选",
             latency: 55 + (idx % 10) * 8
@@ -541,7 +549,7 @@ function parseCmJson(jsonString, targetList) {
             targetList.push({
                 ip: ip,
                 port: validPort,
-                colo: colo || "CM",
+                colo: colo || country,
                 country: country,
                 isp: meta.asOrganization || meta.country_cn || "优选节点",
                 latency: 60 + (idx % 10) * 8
