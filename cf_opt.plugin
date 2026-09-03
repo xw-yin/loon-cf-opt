@@ -1,12 +1,12 @@
 #!name = ⚡️ Cloudflare 动态优选与分地区生成器 (严格实测版)
-#!desc = 拦截虚拟订阅请求，支持按每个国家地区保留 N 个节点（如港2个、日2个、美2个等），严格官方边缘实测过滤并输出 100% 全绿可用的 Loon 原生节点！\n\n【📖 插件使用与自定义源指南】：\n1. 虚拟订阅地址（任选其一，推荐 best.ip）：\n   • `http://best.ip/cf_sub` (更简短优雅)\n   • `http://httpbin.org/cf_sub` (兼容原地址)\n2. 基础配置：填入你的 Worker 域名与 VLESS UUID，端口建议保持 auto（自动继承最畅通测速端口）。\n3. 抽样方案：支持「顺序抽样 (order)」与「随机抽样 (random)」，默认 order 会优先保障港台日韩新美等主流高速地区。\n4. 自定义优选源格式说明（全能兼容）：\n   • 方式一：直接填入 IP 列表，如 `1.1.1.1, 104.16.80.80:2096#香港` 或 CIDR 网段 `173.245.48.0/20`\n   • 方式二：填入远端文本链接，如 `https://zip.cm.edu.kg/all.txt` 或 `https://.../best.txt`\n   • 方式三：填入 JSON 订阅源链接，如 `https://zip.cm.edu.kg/all.json`\n5. 生成订阅：在 Loon 订阅中添加 `http://best.ip/cf_sub` 即可一键拉取！
+#!desc = 拦截虚拟订阅请求，支持按每个国家地区保留 N 个节点（如港2个、日2个、美2个等），严格官方边缘实测过滤并输出 100% 全绿可用的 Loon 原生节点！\n\n【📖 插件使用与自定义源指南】：\n1. 虚拟订阅专属地址：\n   • `http://best.ip/cf_sub`\n2. 基础配置：填入你的 Worker 域名与 VLESS UUID，端口建议保持 auto（自动继承最畅通测速端口）。\n3. 抽样方案：支持「顺序抽样 (order)」与「随机抽样 (random)」，默认 order 会优先保障港台日韩新美等主流高速地区。\n4. 自定义优选源格式说明（全能兼容）：\n   • 方式一：直接填入 IP 列表，如 `1.1.1.1, 104.16.80.80:2096#香港` 或 CIDR 网段 `173.245.48.0/20`\n   • 方式二：填入远端文本链接，如 `https://zip.cm.edu.kg/all.txt` 或 `https://.../best.txt`\n   • 方式三：填入 JSON 订阅源链接，如 `https://zip.cm.edu.kg/all.json`\n5. 生成订阅：在 Loon 订阅中添加 `http://best.ip/cf_sub` 即可一键拉取！
 #!author = Antigravity
 #!homepage = https://github.com/xw-yin/loon-cf-opt
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Cloudflare.png
 #!system = iOS,iPadOS,macOS,tvOS
 #!tag = 节点优选,订阅转换,Cloudflare
 #!type = normal
-#!version = 7.1.0
+#!version = 7.2.0
 
 [Argument]
 uuid = input, "a2a71d1c-5be9-4837-89ac-67125bfd0d28", tag=UUID / 密码, desc=填入你的 VLESS UUID 或 Trojan 密码
@@ -22,9 +22,9 @@ timeout = select, "1200", "800", "1500", "2000", tag=二次测速超时 (ms), de
 custom_source = input, "", tag=自定义优选源, desc=选填：支持逗号/换行分隔的IP/CIDR，或all.txt/all.json等URL链接
 
 [Script]
-# HTTP 重写拦截：同时支持 http://best.ip/cf_sub 和 http://httpbin.org/cf_sub
-http-request ^https?:\/\/(best\.ip|httpbin\.org)\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=71, argument=[{uuid},{host},{path},{port},{protocol},{sample_mode},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=50, tag=CF实时优选节点生成
+# HTTP 重写拦截：专属虚拟订阅地址
+http-request ^https?:\/\/best\.ip\/cf_sub script-path=https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/cf_sub_reader.js?v=72, argument=[{uuid},{host},{path},{port},{protocol},{sample_mode},{test_scale},{retest},{limit_per_country},{timeout},{custom_source}], timeout=50, tag=CF实时优选节点生成
 
 [Mitm]
-# 解密目标虚拟订阅域名
-hostname = best.ip, httpbin.org
+# 解密专属虚拟订阅域名
+hostname = best.ip
