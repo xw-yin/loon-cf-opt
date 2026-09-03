@@ -263,8 +263,11 @@ function testNodeLatency(node, timeoutMs) {
         let finished = false;
         const startTime = Date.now();
         const ipHost = node.ip.includes(':') ? `[${node.ip}]` : node.ip;
-        
-        const probeUrl = `http://${ipHost}/cdn-cgi/trace`;
+        const port = Number(node.port) || 443;
+        const isTls = TLS_PORTS.includes(port);
+        const scheme = isTls ? "https" : "http";
+        // 使用候选节点自身的端口，避免固定探测 80 端口导致测速与实际落地端口脱节。
+        const probeUrl = `${scheme}://${ipHost}:${port}/cdn-cgi/trace`;
 
         const timer = setTimeout(() => {
             if (!finished) {
@@ -277,6 +280,9 @@ function testNodeLatency(node, timeoutMs) {
             url: probeUrl,
             timeout: timeout,
             node: HTTP_REQUEST_NODE,
+            // IP 直连时证书通常签发给域名；SNI/跳过校验仅用于探针，不影响生成节点配置。
+            sni: "speed.cloudflare.com",
+            "skip-cert-verify": isTls,
             headers: {
                 "Host": "speed.cloudflare.com",
                 "User-Agent": "Mozilla/5.0"
@@ -293,7 +299,7 @@ function testNodeLatency(node, timeoutMs) {
                 if (debugLogCount < 3) {
                     debugLogCount++;
                     const hasColo = (typeof data === 'string' && data.includes("colo="));
-                    console.log(`🔎 [探针调试] IP ${node.ip} ➔ status=${statusCode}, err=${err || 'none'}, colo=${hasColo}, 耗时=${elapsed}ms`);
+                    console.log(`🔎 [探针调试] ${scheme.toUpperCase()} ${node.ip}:${port} ➔ status=${statusCode}, err=${err || 'none'}, colo=${hasColo}, 耗时=${elapsed}ms`);
                 }
 
                 // 核心判定：无网络错误，且状态码正常（200~499 均证明 IP 本地真实连通）
