@@ -5,8 +5,8 @@
   "plugin": {
     "name": "blockAdsV2.fixed.v2.remote.plugin",
     "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
-    "bytes": 482604,
-    "sha256": "7b53178ca5819ab34475557f0d24fc1fe8ce7823125440171a88c4ae9e4517ec"
+    "bytes": 479654,
+    "sha256": "b6d29d49e37e5c68db179876d6a94265a7fb166680a2a981b109f2a47bd1da8b"
   },
   "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
   "scripts": [
@@ -26,15 +26,17 @@
     }
   ],
   "local_plugin_sha256": "127a860408c089317fa3eacdf850b39ac71950dc941d48a1f84b0af1ce37d6c5",
-  "scope": "Update Bilibili protobuf request/response and bind ViewProgress for manual chapters on 9.17+. Other application rules remain unchanged.",
+  "scope": "v2.2: Replace Zhihu/SMZDM segments with Kelee jq-based modules and merge Kelee BaiduNetDisk rewrites (fmz200 JS segments for these apps removed); add MITM hosts page-info.zhihu.com, zhida.zhihu.com, h5.smzdm.com, haojia-cdn.smzdm.com, post.m.smzdm.com; SMZDM homepage jq_file pinned to Romeo af682d97. Dianping: remove 3 page-breaking rejects (ddplus framework bundles, dpfile AnswerList bundle, awp-assets fep JSON) and the picassovc script binding. Bilibili and other applications unchanged from v2.1.",
   "validation": {
-    "rule_rewrite_mitm_arguments_unchanged": true,
-    "other_application_scripts_unchanged": true,
-    "coolapk_video_js_bytes_unchanged": true,
-    "local_script_references": 0,
-    "bilibili_behavior_cases": 12
+    "zhihu_smzdm_segments_replaced_with_kelee": true,
+    "baidu_kelee_merged_fmz200_nonoverlap": true,
+    "dianping_breaking_rejects_removed": 3,
+    "dianping_picassovc_binding_removed": true,
+    "orphan_script_references": 0,
+    "bilibili_and_other_apps_unchanged": true,
+    "minimum_loon_bumped_for_jq": "3.5.1(998)"
   },
-  "version": "2.1",
+  "version": "2.2",
   "bilibili_commit": "caf42c487706787431109cc105e93fcec8fc61cd",
   "bilibili_scripts": [
     {
@@ -52,6 +54,7 @@
       "sha256": "701d22911e3a3aa9ff87cd94f2f2bffad45e92c5fdcee5019dd97d6e925c55de"
     }
   ],
-  "minimum_loon": "3.5.1(992)",
-  "previous_release_commit": "b4eecf48393a94c1c523ee4681f761137847f7c7"
+  "minimum_loon": "3.5.1(998)",
+  "previous_release_commit": "74720917ac7284459b27cb3f0648c67a35e90cbc",
+  "kelee_commit": "af682d97f456e8e6998bb70705c07115645b78fb"
 }
