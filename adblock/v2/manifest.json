@@ -1,0 +1,35 @@
+{
+  "repository": "xw-yin/loon-cf-opt",
+  "directory": "adblock/v2",
+  "date": "2026-11-01",
+  "plugin": {
+    "name": "blockAdsV2.fixed.v2.remote.plugin",
+    "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
+    "bytes": 482580,
+    "sha256": "0e0452b22a1418a4d119e884d7b469ca7d6f473af639b58a3c9e3698182fec18"
+  },
+  "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
+  "scripts": [
+    {
+      "name": "Coolapk_Redirect.fixed.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/Coolapk_Redirect.fixed.js",
+      "bindings": 1,
+      "bytes": 945,
+      "sha256": "73676bb3607206a715c982234aca4024bd0382f98c4070d7108ed35e1b93e2f2"
+    },
+    {
+      "name": "VideoPages.fixed.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js",
+      "bindings": 26,
+      "bytes": 32140,
+      "sha256": "4194c9927f10d290b30cfa2c17e9c94235e40250feb3c83b8c9d4771d5bcc931"
+    }
+  ],
+  "local_plugin_sha256": "27f716b62cd09dc56bea9a97747b47cd94ee4e7e84092f44e78cb0d34f6df9b4",
+  "scope": "Remote packaging only; all rule and script behavior is identical to local v2.",
+  "validation": {
+    "rule_bodies_identical": true,
+    "js_bytes_identical": true,
+    "local_script_references": 0
+  }
+}
