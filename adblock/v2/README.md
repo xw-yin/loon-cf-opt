@@ -1,8 +1,18 @@
-# Loon 广告拦截修复版 v2.2（远程脚本）
+# Loon 广告拦截修复版 v2.3（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+## v2.3 变更（在 v2.2 基础上合并 ddgksf2013 可读规则）
+
+v2.2 的 Kelee 方案实测仍不完整，本版按各家近期模块再对照补强；导入地址不变。
+
+- **知乎**：保留 Kelee（配置剥离 HTTPDNS/QUIC + jq 过滤），补入 ddgksf2013 的 14 条纯 reject 规则（品牌提问卡、关注页角标、消息角标、个人主页卡片、电商/AB 配置、回访红点、HTTPDNS 的 /v2/resolv 广告解析等）。ddgksf2013 的知乎脚本为加密混淆代码、无法审计，本合集不打包；需要其脚本效果可单独安装 ddgksf2013 的知乎插件（与本合集的知乎段二选一）。
+- **什么值得买**：保留 Kelee，补 ddgksf2013 脚本处理的四个 Kelee 未覆盖接口——zdmimg 的 CPM 广告分发（advert_distribution）、百科 home_v3、值友 vip 横幅、好价详情相关模块；脚本为可读源码，已自托管固定在本仓库（提交 `bf9cc7f`）。MITM 补 `baike-api.smzdm.com`、`zhiyou.m.smzdm.com`、`*.zdmimg.com`。
+- **百度网盘**：保留 v2.2 合并集，补 ddgksf2013/sooyaaabo 的 6 条 reject（会员引导弹窗、热搜列表、短剧推荐、金币乐园通知、搜索填词、掌娱 zysdk）。首页信息流 feed/cardinfos 依赖 ddgksf2013 的混淆脚本，未打包，该处广告可能仍有残留。
+- **大众点评**：移除最后一条 zirawell 图片脚本绑定，点评段改为纯 reject 规则（其余段落经审计无交叉干扰）；对应的脚本开关一并移除。
+- 上一版 v2.2 快照为提交 `0c4c828`，可回退。
 
 ## v2.2 变更（知乎 / 什么值得买 / 百度网盘 / 大众点评）
 

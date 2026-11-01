@@ -5,8 +5,8 @@
   "plugin": {
     "name": "blockAdsV2.fixed.v2.remote.plugin",
     "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
-    "bytes": 479654,
-    "sha256": "b6d29d49e37e5c68db179876d6a94265a7fb166680a2a981b109f2a47bd1da8b"
+    "bytes": 482975,
+    "sha256": "70e545eeeb7112c5faa12028ab6badea3277a975c92d36cb91da22da14fccfab"
   },
   "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
   "scripts": [
@@ -23,20 +23,26 @@
       "bindings": 26,
       "bytes": 32140,
       "sha256": "4194c9927f10d290b30cfa2c17e9c94235e40250feb3c83b8c9d4771d5bcc931"
+    },
+    {
+      "name": "ddgksf2013_smzdm_json.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/bf9cc7fa86b27e1bbac17d1929e57e78f10fdc7e/adblock/v2/ddgksf2013_smzdm_json.js",
+      "bindings": 4,
+      "bytes": 2631,
+      "sha256": "cbcabf770447117a66358314950a4233448eeb86274ccfb96d148294d327eece"
     }
   ],
   "local_plugin_sha256": "127a860408c089317fa3eacdf850b39ac71950dc941d48a1f84b0af1ce37d6c5",
-  "scope": "v2.2: Replace Zhihu/SMZDM segments with Kelee jq-based modules and merge Kelee BaiduNetDisk rewrites (fmz200 JS segments for these apps removed); add MITM hosts page-info.zhihu.com, zhida.zhihu.com, h5.smzdm.com, haojia-cdn.smzdm.com, post.m.smzdm.com; SMZDM homepage jq_file pinned to Romeo af682d97. Dianping: remove 3 page-breaking rejects (ddplus framework bundles, dpfile AnswerList bundle, awp-assets fep JSON) and the picassovc script binding. Bilibili and other applications unchanged from v2.1.",
+  "scope": "v2.3: Zhihu gains ddgksf2013 plain reject rules Kelee lacks (brand question cards, moments tab, notifications count, profile cards, ecom/ab config, revisit, resolv). SMZDM gains ddgksf2013 script bindings for zdmimg CPM advert_distribution, baike, zhiyou vip banner and haojia article modules; script self-hosted and pinned. BaiduNetDisk gains ddgksf2013/sooyaaabo rejects (membership guide, hotlist, shortseries, coins notice, queryhint, zysdk). Dianping: last zirawell script binding removed (now rewrite-only). ddgksf2013's obfuscated Zhihu/Baidu scripts were deliberately NOT bundled (unreadable code).",
   "validation": {
-    "zhihu_smzdm_segments_replaced_with_kelee": true,
-    "baidu_kelee_merged_fmz200_nonoverlap": true,
-    "dianping_breaking_rejects_removed": 3,
-    "dianping_picassovc_binding_removed": true,
-    "orphan_script_references": 0,
-    "bilibili_and_other_apps_unchanged": true,
-    "minimum_loon_bumped_for_jq": "3.5.1(998)"
+    "zhihu_kelee_plus_ddgksf2013_rejects": 14,
+    "smzdm_ddgksf2013_bindings_added": 4,
+    "baidu_ddgksf2013_rejects_added": 6,
+    "dianping_script_bindings_remaining": 0,
+    "orphan_argument_switches": 0,
+    "obfuscated_third_party_scripts_bundled": 0
   },
-  "version": "2.2",
+  "version": "2.3",
   "bilibili_commit": "caf42c487706787431109cc105e93fcec8fc61cd",
   "bilibili_scripts": [
     {
@@ -55,6 +61,7 @@
     }
   ],
   "minimum_loon": "3.5.1(998)",
-  "previous_release_commit": "74720917ac7284459b27cb3f0648c67a35e90cbc",
-  "kelee_commit": "af682d97f456e8e6998bb70705c07115645b78fb"
+  "previous_release_commit": "0c4c82852e9d3c82878ba2cd931520e06ea562e6",
+  "kelee_commit": "af682d97f456e8e6998bb70705c07115645b78fb",
+  "ddgksf2013_smzdm_commit": "bf9cc7fa86b27e1bbac17d1929e57e78f10fdc7e"
 }
