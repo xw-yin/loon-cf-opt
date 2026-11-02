@@ -1,8 +1,21 @@
-# Loon 广告拦截修复版 v2.3（远程脚本）
+# Loon 广告拦截修复版 v2.4（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+## v2.4 变更（微博：合集原本零覆盖，本版新增整段）
+
+反馈：微博广告出现。核查发现合集对微博主客户端**没有任何有效覆盖**——只有 [Rule] 里 76 条 sina.com.cn 旧网页广告域名，微博 App 的流量走 api.weibo.cn、根本不经过这些域名，MITM 里也没有任何 weibo 主机。
+
+做法：新增 `# > 微博` 段，取当前维护中的 Kelee（RuCu6/zmqcherish 开源线，2026-10-02 新格式版）整套方案，合并 sooyaaabo 2026-10-19 合并版与墨鱼的增量：
+
+- **[Script] 20 条绑定**，同一支主脚本 `kelee_weibo_remove_ads.js`（56.7KB，2026-04-23 版）：信息流、详情页、评论区、视频流、个人主页、超话、消息页、私信列表全覆盖，开屏走 bootpreload/sdkad/wbapplua 三处脚本处理。脚本为可读开源代码（非混淆），已自托管并固定在本仓库提交 `4ebeced`。
+- **[Rewrite] 24 条**：Kelee 的 reject_dict 集合（签到/推送/弹幕/投票/发现页/搜索引导/红包/uve 实时广告/sdkconfig/文章打赏广告）+ sooyaaabo 的 logservice 404 与 cardlist jq（删 group 类条目）+ 墨鱼 3 条独有 reject（ad/preload、profile/recommend_popuser、account/recommend_interesttags）与 uve 点击/曝光上报 reject。api 主机按 sooyaaabo 写法放宽为 `m?api.weibo.c(n|om)`，兼容新版客户端的 mapi 主机。
+- **[Rule] 3 条**：uve.weibo.com DIRECT（上游同款放行）、huodong.weibo.cn 与 biz.weibo.com REJECT。
+- **[MITM]** 补 `*.weibo.cn, *.weibo.com, weibo.com`。
+
+未收：墨鱼的 weibo_json 脚本（与 Kelee 脚本覆盖同一批接口，不重复挂）；sooyaaabo 的顶部 Tab 分组开关与会员图标脚本（功能向、非广告）。微博轻享版（国际版）不在本次范围。
 
 ## v2.3 变更（在 v2.2 基础上合并 ddgksf2013 可读规则）
 

@@ -30,6 +30,15 @@
       "bindings": 4,
       "bytes": 2631,
       "sha256": "cbcabf770447117a66358314950a4233448eeb86274ccfb96d148294d327eece"
+    },
+    {
+      "name": "kelee_weibo_remove_ads.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/4ebeced22f8e9a728c3245fe722c56852475ffef/adblock/v2/kelee_weibo_remove_ads.js",
+      "sha256": "026ccd766a53f744c2bf2aad93c4deb6f207defe4daf973178bb3e4193c997fb",
+      "size": 56702,
+      "pinned_in_commit": "4ebeced22f8e9a728c3245fe722c56852475ffef",
+      "purpose": "微博主客户端去广告主脚本（Kelee/RuCu6+zmqcherish 开源版 2026-04-23，可读未混淆）：信息流/详情/评论/视频流/个人主页/消息页广告过滤 + 开屏 preload 处理",
+      "bindings": 20
     }
   ],
   "local_plugin_sha256": "127a860408c089317fa3eacdf850b39ac71950dc941d48a1f84b0af1ce37d6c5",
@@ -42,7 +51,7 @@
     "orphan_argument_switches": 0,
     "obfuscated_third_party_scripts_bundled": 0
   },
-  "version": "2.3",
+  "version": "2.4",
   "bilibili_commit": "caf42c487706787431109cc105e93fcec8fc61cd",
   "bilibili_scripts": [
     {
