@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.5（远程脚本）
+# Loon 广告拦截修复版 v2.5.1（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.5.1（2026-11-03）：按要求摘除 B 站空降助手——删 bilibili.airborne 绑定、sponsorBlock 开关、响应脚本的 sponsorBlock 参数与 `DOMAIN,bsbsb.top,PROXY` 规则；此后不再向 bsbsb.top 发送所看视频的 ID。B 站其余净化（请求优化、响应净化、直播、Tab/我的页 jq）保留。
 
 ## v2.5 变更（2026-11-03：微博 17 条修复 + 安全审计收敛）
 
