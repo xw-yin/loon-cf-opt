@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.6.0（远程脚本）
+# Loon 广告拦截修复版 v2.6.1（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.6.1（2026-11-03）：按要求整段删除 YouTube 与 Spotify（用户有单独插件）：删两应用在 Rewrite/Script 的全部分段、Rule 里的 ads.youtube.com、youtube_enable 开关与 4 个 MITM 主机（919→915）；此后这两个应用的流量不再被本合集解密处理。
 
 v2.6.0（2026-11-03）：五个常用 App 按深查结果升级（均已审计：新增远程脚本 4 份逐个静态扫描，零网络调用、零存储写入、无混淆）——京东换 ccyykk666（2026-10-31）jq+JS 合并版并新增 HomeClean/OrderAds/ProfileClean/ProductClean 四个开关，fmz200 老脚本收窄到仅剩 start 接口；拼多多由 3 条 reject 补成 sooyaaabo 全套 45 条（reject+jq+rucu6 脚本）；高德以 Kelee jq（2026-10-20）为主并集 sooyaaabo 独有接口与 rucu6_amap.js；滴滴取 mist-whisper ∪ sooyaaabo 的 jq 并集（新增城际/POI/旅行等），未被覆盖的原 JS 绑定保留；腾讯视频原规则此前全部注释（零覆盖），以 sooyaaabo 版正式启用。MITM 补 16 个主机（ai/info/center.amap.com、api.udache.com、poi.map.xiaojukeji.com、i.video.qq.com、rdelivery.qq.com 等），总数 919。注意：新增 jq 绑定按插件惯例不受各 App 旧开关控制。
 
