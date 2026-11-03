@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.5.2（远程脚本）
+# Loon 广告拦截修复版 v2.5.3（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.5.3（2026-11-03）：酷安改 jq 合并版——因酷安服务端更换广告标记，2023 年的 fmz200 标记脚本整批漏过。新版取 sooyaaabo（2026-11-02 版）新标记与原标记的并集：init 新删 24455/36839/1635 及「关注」、indexV8 增 28621 并保留 sponsorCard 检查、page/dataList 增 13 个推广 ID、新增 /account/loadConfig（我的页卡片）绑定、热搜 reject 由注释改为启用；fmz200_coolapk.js 远程脚本退役（少一份远程信任）。jq 表达式已用本地 jq 对样本数据做过功能验证。注意：jq 绑定与插件内其他 jq 一致不受 kuan_enable 开关控制（开关现只管酷安重定向脚本）。
 
 v2.5.2（2026-11-03）：财新、夸克以洁净还原版加回——原 jsjiami 混淆脚本经反混淆 + 沙箱动态运行双向验证（财新：广告配置日期改写 2029 + 间隔置 0；夸克：删除 open-cms 响应 result 里的 cms_* 推广位；两者均零网络、零存储），还原为十余行可读脚本自托管于本仓库（restored_caixin.js / restored_quark.js，pin 在 bf845cd）。MITM 补回 gg.caixin.com 与 open-cms-api.(uc|quark).cn（夸克主机此前不在名单内、原绑定实际未生效，本版起真正生效）。
 
