@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.5.3（远程脚本）
+# Loon 广告拦截修复版 v2.6.0（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.6.0（2026-11-03）：五个常用 App 按深查结果升级（均已审计：新增远程脚本 4 份逐个静态扫描，零网络调用、零存储写入、无混淆）——京东换 ccyykk666（2026-10-31）jq+JS 合并版并新增 HomeClean/OrderAds/ProfileClean/ProductClean 四个开关，fmz200 老脚本收窄到仅剩 start 接口；拼多多由 3 条 reject 补成 sooyaaabo 全套 45 条（reject+jq+rucu6 脚本）；高德以 Kelee jq（2026-10-20）为主并集 sooyaaabo 独有接口与 rucu6_amap.js；滴滴取 mist-whisper ∪ sooyaaabo 的 jq 并集（新增城际/POI/旅行等），未被覆盖的原 JS 绑定保留；腾讯视频原规则此前全部注释（零覆盖），以 sooyaaabo 版正式启用。MITM 补 16 个主机（ai/info/center.amap.com、api.udache.com、poi.map.xiaojukeji.com、i.video.qq.com、rdelivery.qq.com 等），总数 919。注意：新增 jq 绑定按插件惯例不受各 App 旧开关控制。
 
 v2.5.3（2026-11-03）：酷安改 jq 合并版——因酷安服务端更换广告标记，2023 年的 fmz200 标记脚本整批漏过。新版取 sooyaaabo（2026-11-02 版）新标记与原标记的并集：init 新删 24455/36839/1635 及「关注」、indexV8 增 28621 并保留 sponsorCard 检查、page/dataList 增 13 个推广 ID、新增 /account/loadConfig（我的页卡片）绑定、热搜 reject 由注释改为启用；fmz200_coolapk.js 远程脚本退役（少一份远程信任）。jq 表达式已用本地 jq 对样本数据做过功能验证。注意：jq 绑定与插件内其他 jq 一致不受 kuan_enable 开关控制（开关现只管酷安重定向脚本）。
 
