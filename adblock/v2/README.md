@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.6.1（远程脚本）
+# Loon 广告拦截修复版 v2.6.2（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.6.2（2026-11-04）：修复酷安 jq 不生效——v2.5.3 把 7 条酷安 jq 误置于 [Script] 段，而本插件全部 110 条 jq 均在 [Rewrite] 段执行、[Script] 段的 jq 不被处理，症状为广告与改前完全一致。7 条 jq 已移回 [Rewrite] 段酷安块；[Script] 段只保留酷安重定向脚本。
 
 v2.6.1（2026-11-03）：按要求整段删除 YouTube 与 Spotify（用户有单独插件）：删两应用在 Rewrite/Script 的全部分段、Rule 里的 ads.youtube.com、youtube_enable 开关与 4 个 MITM 主机（919→915）；此后这两个应用的流量不再被本合集解密处理。
 
