@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.6.2（远程脚本）
+# Loon 广告拦截修复版 v2.7.0（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.7.0（2026-11-07）：按要求把 Spotify 与 YouTube 两个独立插件整合进合集（v2.6.1 删的是 fmz200 老实现，本次整合的是在用的 devchristian1337 独立插件：Spotify 本体 + Romeo 托管的 YouTube Beta）。内容与原插件一一对应：新增参数 20 个（Spotify 4 + YouTube 16，tag 已中文化）、Rule 6 条、Rewrite 7 条、Script 18 条（Spotify 经典绑定 6 + YouTube 条件绑定 12）、MITM 补 9 主机（915→924，含 *.googlevideo.com）。脚本按本仓库惯例 pin 到审计过的提交（Spotify @b0c19b2、YouTube @ff465b59；两个 .lpx 本体与 2026-11-05 审计版本逐字节一致）。审计结论（2026-11-07 复扫 pin 版本）：Spotify 四个小脚本零网络调用，两个 protobuf 捆包的 XHR/fetch/eval 均为 protobufjs 库内代码；YouTube 唯一外发是下载用户自填的屏蔽频道列表（默认空、不带 cookie），其余 fetch 命中为其本地日志页面（日志工具默认关）。注意：整合后请停用/删除原来的两个独立插件，避免同一请求被处理两遍；两插件按原设计没有总开关，核心去广告绑定常开，各功能由自带参数控制。
 
 v2.6.2（2026-11-04）：修复酷安 jq 不生效——v2.5.3 把 7 条酷安 jq 误置于 [Script] 段，而本插件全部 110 条 jq 均在 [Rewrite] 段执行、[Script] 段的 jq 不被处理，症状为广告与改前完全一致。7 条 jq 已移回 [Rewrite] 段酷安块；[Script] 段只保留酷安重定向脚本。
 
