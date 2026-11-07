@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.7.0（远程脚本）
+# Loon 广告拦截修复版 v2.8.0（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.8.0（2026-11-07）：Spotify 换源——由 v2.7.0 的 devchristian 版改为 fking 版 Spotify_remove_ads（001ProMax 线，Romeo 托管）：参数换为 tab/useractivity 两个，Rule 1 条、Rewrite 2 条、Script 1 条，MITM 的 *spclient.spotify.com 改为 *-spclient.spotify.com（总数仍 924）。审计结论：其脚本（pin @ff465b59）零网络调用、零存储、无任何外部主机，纯本地处理。同批审计的 fking 版 YouTube 未采用：其 request 脚本会把 initplayback 请求重定向到作者的 Cloudflare Worker（init-stream.maasea.workers.dev）处理，完整播放请求经第三方服务器，按审计规矩报用户后拍板不收；YouTube 维持 v2.7.0 的 devchristian 版不变。
 
 v2.7.0（2026-11-07）：按要求把 Spotify 与 YouTube 两个独立插件整合进合集（v2.6.1 删的是 fmz200 老实现，本次整合的是在用的 devchristian1337 独立插件：Spotify 本体 + Romeo 托管的 YouTube Beta）。内容与原插件一一对应：新增参数 20 个（Spotify 4 + YouTube 16，tag 已中文化）、Rule 6 条、Rewrite 7 条、Script 18 条（Spotify 经典绑定 6 + YouTube 条件绑定 12）、MITM 补 9 主机（915→924，含 *.googlevideo.com）。脚本按本仓库惯例 pin 到审计过的提交（Spotify @b0c19b2、YouTube @ff465b59；两个 .lpx 本体与 2026-11-05 审计版本逐字节一致）。审计结论（2026-11-07 复扫 pin 版本）：Spotify 四个小脚本零网络调用，两个 protobuf 捆包的 XHR/fetch/eval 均为 protobufjs 库内代码；YouTube 唯一外发是下载用户自填的屏蔽频道列表（默认空、不带 cookie），其余 fetch 命中为其本地日志页面（日志工具默认关）。注意：整合后请停用/删除原来的两个独立插件，避免同一请求被处理两遍；两插件按原设计没有总开关，核心去广告绑定常开，各功能由自带参数控制。
 
