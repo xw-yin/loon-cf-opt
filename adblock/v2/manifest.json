@@ -5,8 +5,8 @@
   "plugin": {
     "name": "blockAdsV2.fixed.v2.remote.plugin",
     "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
-    "bytes": 532493,
-    "sha256": "5c8551649f0c8d9ef75e20f12eaeeb6b7109b691ef2cab949fbc9750d3bc9e6e"
+    "bytes": 533492,
+    "sha256": "584df7d112e9fa2ee05e32d6701cb98112a12bff96ce8420248e187eb7b066b8"
   },
   "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
   "scripts": [
@@ -39,6 +39,15 @@
       "pinned_in_commit": "4ebeced22f8e9a728c3245fe722c56852475ffef",
       "purpose": "微博主客户端去广告主脚本（Kelee/RuCu6+zmqcherish 开源版 2026-04-23，可读未混淆）：信息流/详情/评论/视频流/个人主页/消息页广告过滤 + 开屏 preload 处理",
       "bindings": 20
+    },
+    {
+      "name": "restored_bdpan_unlock.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/c6953adabdc0dabd5b839cfe4bc4cd65a7f1e626/adblock/v2/restored_bdpan_unlock.js",
+      "sha256": "e3f6d682c981f462ea2f975a7b849d9cffb63676079fd706138c645403fb3290",
+      "size": 11087,
+      "pinned_in_commit": "c6953adabdc0dabd5b839cfe4bc4cd65a7f1e626",
+      "purpose": "百度网盘净化+会员/倍速解锁（ddgksf2013 bdpan.unlock.js V1.0.2 的洁净还原版，webcrack 反混淆 + 沙箱 11 组样本逐字比对一致；原版零网络/零存储；还原版仅将原载荷里 3 处作者 Telegram 推广链接置空）：streaming 请求 type 改写 M3U8_AUTO_1080、membership/user 伪造 SVIP 载荷、getsyscfg/afd/cardinfos 净化",
+      "bindings": 2
     }
   ],
   "local_plugin_sha256": "127a860408c089317fa3eacdf850b39ac71950dc941d48a1f84b0af1ce37d6c5",
@@ -51,7 +60,7 @@
     "orphan_argument_switches": 0,
     "obfuscated_third_party_scripts_bundled": 0
   },
-  "version": "2.9.0",
+  "version": "2.9.1",
   "bilibili_commit": "caf42c487706787431109cc105e93fcec8fc61cd",
   "bilibili_scripts": [
     {

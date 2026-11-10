@@ -1,4 +1,4 @@
-#!name=广告拦截&净化合集（远程修复 v2.9.0）
+#!name=广告拦截&净化合集（远程修复 v2.9.1）
 #!desc=(支持约730款APP/小程序)针对部分APP和小程序广告进行拦截，某些APP要清除缓存或者重新安装拦截广告才会生效！规则明细可以查看本插件的注释
 #!author=奶思[https://github.com/fmz200]
 #!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AdblockPlus.png
@@ -8086,6 +8086,10 @@ response if ${url} ~= /^https?:\/\/(kjp|t7z)\.cupid\.iqiyi\.com\/mixer\?/i then 
 # v2.9.0：会员权益解锁（chxm1023/@ddm1023 bdcloud.js 2026-05-31 版，pin @1f9dd763）
 # 审计结论：全可读、零网络调用、零存储、零凭据处理，仅本地改写响应；伪造 SVIP10 至 2099 年仅影响客户端显示与本地功能门，服务端权益（极速下载等）不由客户端字段决定；quota 显示 30TB 为虚假显示；附带清空活动/信息流广告响应
 response if ${url} ~= /^https?:\/\/pan\.baidu\.com\/(act\/.+\/(activityentry|bchannel|cardwelfare|skin)|rest\/.+\/(membership\/user|pcs\/adv)|feed\/cardinfos|api\/(user\/getinfo|quota|loginstatus|account\/getprivilege)|buy\/ad\/conf|wap\/vip|coins\/taskcenter\/homensr)/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/1f9dd7632aca353c078ecf11352ccb2ea0ff1316/Modules/JavaScript/sooyaaabo/BaiduNetDisk/chxm1023_bdcloud.js") with enable=${bdwp_unlock_enable}, tag="百度网盘会员解锁", timeout=60, requires_body=true
+# v2.9.1：ddg 倍速/会员 unlock 的洁净还原版（自托管 restored_bdpan_unlock.js，还原与沙箱比对说明见脚本头部）
+# 原版另有 getsyscfg/afd/entry/feed/cardinfos 三路：getsyscfg 与 afd/entry 已被 [Rewrite] 请求级 reject 覆盖、cardinfos 与上方 chxm 处理趋同，故只挂两条实际生效的绑定
+request if ${url} ~= /^https?:\/\/pan\.baidu\.com\/api\/streaming\?app_id=\d+&type=M3U8_HQ_1080/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/c6953adabdc0dabd5b839cfe4bc4cd65a7f1e626/adblock/v2/restored_bdpan_unlock.js") with enable=${bdwp_unlock_enable}, tag="百度网盘倍速解锁", timeout=60
+response if ${url} ~= /^https?:\/\/pan\.baidu\.com\/rest\/.+\/membership\/user/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/c6953adabdc0dabd5b839cfe4bc4cd65a7f1e626/adblock/v2/restored_bdpan_unlock.js") with enable=${bdwp_unlock_enable}, tag="百度网盘会员解锁(ddg还原)", timeout=60, requires_body=true
 
 # > 百度地图
 # hostname = dss0.bdstatic.com, tb1.bdstatic.com, tb2.bdstatic.com, ss0.bdstatic.com, gss0.bdstatic.com, newclient.map.baidu.com

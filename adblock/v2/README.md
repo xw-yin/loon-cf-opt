@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.9.0（远程脚本）
+# Loon 广告拦截修复版 v2.9.1（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.9.1（2026-11-10）：按用户决定把 ddgksf2013 的 bdpan.unlock.js 还原成可读版再加入——原版 48KB 全混淆（sha256 00615ce6…），经 webcrack 静态反混淆读出全部逻辑，再将原版放入沙箱喂 11 组样本动态运行，还原版输出逐字一致（原版实测零网络调用、零通知、零存储）。还原版自托管于本仓库 restored_bdpan_unlock.js（pin @c6953ada），与原版唯一刻意差异是把 tips 载荷里 3 处作者 Telegram 频道推广链接置空。插件只挂两条实际生效的绑定（与 chxm 解锁共用开关 bdwp_unlock_enable）：api/streaming 请求把 type=M3U8_HQ_1080 改写为 M3U8_AUTO_1080（倍速/高清核心）、rest/…/membership/user 响应替换为其 SVIP 伪造载荷；原版另有的 getsyscfg/afd/entry 两路已被 [Rewrite] 的请求级 reject 覆盖、feed/cardinfos 与 chxm 处理趋同，未重复挂绑定（还原脚本内仍保留全部分支，单独使用时完整可用）。
 
 v2.9.0（2026-11-10）：四家开屏复发专项 + 百度网盘会员解锁（均先审计后合入）。IT之家：此前对开屏零覆盖，补 dat.ruanmei.com/ithome/money/acd.json reject，MITM 补 dat.ruanmei.com（924→925）。淘宝：脚本无更新（现行 fmz200 版是 Kelee 脚本的超集），补开屏图新式 URL 三条（heic 转码图 png/jpg 两式 + gw.alicdn webp 全屏图）与 wireless.home.splash.awesome.get 直拒（源 ishowshu 2026-05-27，Romeo 双源一致）。酷安：接口 jq 已是最新并集，漏在开屏聚合 SDK 域名池，补 pangolin-sdk-toutiao-b.com、pglstatp-toutiao.com、kuaishouzt.com、kwaiad.com 的 DOMAIN-SUFFIX + QUIC 拒绝共 8 条。百度网盘：补新开屏接口 5 条（buy/ad/conf|get|analytics、membership/advertise/dsp、api/analytics 的 splash/bidding）与 vlion.cn、advlion.com 域名 + QUIC 4 条。另按要求加入会员解锁脚本 chxm1023 bdcloud.js（pin @1f9dd763，新增开关 bdwp_unlock_enable 默认开）：审计结论——全可读、零网络调用、零存储、零凭据处理，仅本地改写响应，伪造 SVIP10 至 2099 年只影响客户端显示与本地功能门，服务端权益不由客户端字段决定，quota 显示 30TB 为虚假显示。同源的 ddgksf2013 倍速 unlock 脚本为全混淆构建，按规矩未收（其 membership/user 部分与 chxm 重叠，独有的是 streaming 1080P 请求头处理）。
 
