@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.9.2（远程脚本）
+# Loon 广告拦截修复版 v2.9.3（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.9.3（2026-11-10）：按用户拍板把 YouTube 两个脚本的 pin 从 Romeo @ff465b59 升到 @e8135d0b9d（12 条绑定，Spotify 的 fking 脚本 pin 不动）。新版脚本与 v2.9.2 变更说明里审计过的版本逐字节一致（request sha256 b38e2180…、response sha256 4689a316…）：eml-fe 广告标记哈希后缀正则 {16}→{1,16}、search 续页 protobuf 字段映射 +1、eml 命令校验多接受一个字段号；无新外发、无新主机，后台播放逻辑未动（画中画问题与此无关）。
 
 v2.9.2（2026-11-10）：YouTube 说明中文化——16 个参数的英文 desc 全部译成中文（参数名、默认值、选项值一字未动），10 条脚本绑定的英文 tag 一并译成中文；纯文案变更，无功能变化。同批检查原插件更新：devchristian1337 YouTube 的 .lpx 本体自 pin @ff465b59 后只有 #!date 变化（2026-11-01→2026-11-07），参数与绑定无变化；但其两个脚本（request/response.min.js）在 Romeo 2026-11-08 同步中有小幅更新，已逐段比对审计：广告标记 eml-fe 的哈希后缀正则由固定 16 位放宽为 1–16 位、search 续页的 protobuf 字段映射补一字段、eml 命令校验多接受一个字段号——均为跟随 YouTube 服务端标记/结构漂移的适配，无新外发、无新主机、后台播放逻辑未动。是否把脚本 pin 升到新版由用户拍板（升 pin 后版本号顺延）。
 
