@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.8.0（远程脚本）
+# Loon 广告拦截修复版 v2.9.0（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.9.0（2026-11-10）：四家开屏复发专项 + 百度网盘会员解锁（均先审计后合入）。IT之家：此前对开屏零覆盖，补 dat.ruanmei.com/ithome/money/acd.json reject，MITM 补 dat.ruanmei.com（924→925）。淘宝：脚本无更新（现行 fmz200 版是 Kelee 脚本的超集），补开屏图新式 URL 三条（heic 转码图 png/jpg 两式 + gw.alicdn webp 全屏图）与 wireless.home.splash.awesome.get 直拒（源 ishowshu 2026-05-27，Romeo 双源一致）。酷安：接口 jq 已是最新并集，漏在开屏聚合 SDK 域名池，补 pangolin-sdk-toutiao-b.com、pglstatp-toutiao.com、kuaishouzt.com、kwaiad.com 的 DOMAIN-SUFFIX + QUIC 拒绝共 8 条。百度网盘：补新开屏接口 5 条（buy/ad/conf|get|analytics、membership/advertise/dsp、api/analytics 的 splash/bidding）与 vlion.cn、advlion.com 域名 + QUIC 4 条。另按要求加入会员解锁脚本 chxm1023 bdcloud.js（pin @1f9dd763，新增开关 bdwp_unlock_enable 默认开）：审计结论——全可读、零网络调用、零存储、零凭据处理，仅本地改写响应，伪造 SVIP10 至 2099 年只影响客户端显示与本地功能门，服务端权益不由客户端字段决定，quota 显示 30TB 为虚假显示。同源的 ddgksf2013 倍速 unlock 脚本为全混淆构建，按规矩未收（其 membership/user 部分与 chxm 重叠，独有的是 streaming 1080P 请求头处理）。
 
 v2.8.0（2026-11-07）：Spotify 换源——由 v2.7.0 的 devchristian 版改为 fking 版 Spotify_remove_ads（001ProMax 线，Romeo 托管）：参数换为 tab/useractivity 两个，Rule 1 条、Rewrite 2 条、Script 1 条，MITM 的 *spclient.spotify.com 改为 *-spclient.spotify.com（总数仍 924）。审计结论：其脚本（pin @ff465b59）零网络调用、零存储、无任何外部主机，纯本地处理。同批审计的 fking 版 YouTube 未采用：其 request 脚本会把 initplayback 请求重定向到作者的 Cloudflare Worker（init-stream.maasea.workers.dev）处理，完整播放请求经第三方服务器，按审计规矩报用户后拍板不收；YouTube 维持 v2.7.0 的 devchristian 版不变。
 
