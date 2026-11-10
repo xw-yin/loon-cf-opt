@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.9.1（远程脚本）
+# Loon 广告拦截修复版 v2.9.2（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.9.2（2026-11-10）：YouTube 说明中文化——16 个参数的英文 desc 全部译成中文（参数名、默认值、选项值一字未动），10 条脚本绑定的英文 tag 一并译成中文；纯文案变更，无功能变化。同批检查原插件更新：devchristian1337 YouTube 的 .lpx 本体自 pin @ff465b59 后只有 #!date 变化（2026-11-01→2026-11-07），参数与绑定无变化；但其两个脚本（request/response.min.js）在 Romeo 2026-11-08 同步中有小幅更新，已逐段比对审计：广告标记 eml-fe 的哈希后缀正则由固定 16 位放宽为 1–16 位、search 续页的 protobuf 字段映射补一字段、eml 命令校验多接受一个字段号——均为跟随 YouTube 服务端标记/结构漂移的适配，无新外发、无新主机、后台播放逻辑未动。是否把脚本 pin 升到新版由用户拍板（升 pin 后版本号顺延）。
 
 v2.9.1（2026-11-10）：按用户决定把 ddgksf2013 的 bdpan.unlock.js 还原成可读版再加入——原版 48KB 全混淆（sha256 00615ce6…），经 webcrack 静态反混淆读出全部逻辑，再将原版放入沙箱喂 11 组样本动态运行，还原版输出逐字一致（原版实测零网络调用、零通知、零存储）。还原版自托管于本仓库 restored_bdpan_unlock.js（pin @c6953ada），与原版唯一刻意差异是把 tips 载荷里 3 处作者 Telegram 频道推广链接置空。插件只挂两条实际生效的绑定（与 chxm 解锁共用开关 bdwp_unlock_enable）：api/streaming 请求把 type=M3U8_HQ_1080 改写为 M3U8_AUTO_1080（倍速/高清核心）、rest/…/membership/user 响应替换为其 SVIP 伪造载荷；原版另有的 getsyscfg/afd/entry 两路已被 [Rewrite] 的请求级 reject 覆盖、feed/cardinfos 与 chxm 处理趋同，未重复挂绑定（还原脚本内仍保留全部分支，单独使用时完整可用）。
 
