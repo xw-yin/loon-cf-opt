@@ -1,4 +1,4 @@
-#!name=广告拦截&净化合集（远程修复 v2.10.3）
+#!name=广告拦截&净化合集（远程修复 v2.10.4）
 #!desc=(支持约730款APP/小程序)针对部分APP和小程序广告进行拦截，某些APP要清除缓存或者重新安装拦截广告才会生效！规则明细可以查看本插件的注释
 #!author=奶思[https://github.com/fmz200]
 #!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AdblockPlus.png
@@ -51,7 +51,7 @@ bdduditu_enable = switch,true,false,tag=百度地图-脚本开关
 bdwp_unlock_enable = switch,true,false,tag=百度网盘-会员解锁开关
 per_filter_video_thread = select,"0","1",tag=百度贴吧-推荐页不展示视频贴,desc=设置为1则推荐页不展示视频贴
 bohejmkh_enable = switch,true,false,tag=薄荷健康-脚本开关
-logLevel = select,"error","warn","info","debug","off",tag=bilibili-日志等级
+logLevel = select,"off","error","warn","info","debug",tag=bilibili-日志等级
 bilimanhua_enable = switch,true,false,tag=哔哩哔哩漫画-脚本开关
 blued_enable = switch,true,false,tag=Blued-脚本开关
 cdnngogo_enable = switch,true,false,tag=菜鸟裹裹-脚本开关
@@ -113,7 +113,8 @@ vrvr_enable = switch,true,false,tag=转转-脚本开关
 
 optimizeRequest = switch,true,tag=bilibili-优化请求
 purifyComment = switch,true,tag=bilibili-过滤评论推广
-displayUpList = select,"show","hide",tag=bilibili-动态页UP列表,desc=show显示，hide隐藏
+sponsorBlock = switch,false,tag=bilibili-空降助手,desc=跳过视频中插入的广告；片段数据来自第三方 bsbsb.top，默认关
+displayUpList = select,"show","hide","auto",tag=bilibili-动态页UP列表,desc=auto：仅当列表中存在直播状态时显示；show：始终显示；hide：始终隐藏
 PRGG = switch,true,tag=网易云音乐-显示推荐问候
 PRRK = switch,false,tag=网易云音乐-显示排行榜
 PRDRD = switch,false,tag=网易云音乐-显示每日推荐
@@ -784,11 +785,12 @@ DOMAIN-SUFFIX, tt.biquge.la, REJECT
 
 # > 哔哩哔哩
 # hostname = grpc.biliapi.net, app.bilibili.com, api.bilibili.com, api.live.bilibili.com, line3-h5-mobile-api.biligame.com
+DOMAIN,bsbsb.top,PROXY
 DOMAIN,api.biliapi.com,REJECT
 DOMAIN,app.biliapi.com,REJECT
 DOMAIN,api.biliapi.net,REJECT
 DOMAIN,app.biliapi.net,REJECT
-AND,((DOMAIN-SUFFIX,chat.bilibili.com), (OR,((DOMAIN-KEYWORD,stun), (DOMAIN-KEYWORD,tracker)))),REJECT
+AND,((DOMAIN-SUFFIX,chat.bilibili.com), (OR,((DOMAIN-KEYWORD,stun), (DOMAIN-KEYWORD,tracker), (DOMAIN-KEYWORD,p2p)))),REJECT
 
 # > BBC
 DOMAIN-SUFFIX, visualscience.external.bbc.co.uk, REJECT
@@ -4576,14 +4578,16 @@ response if ${url} ~= /^https:\/\/grpc\.biliapi\.net\/bilibili\.app\.interface\.
 response if ${url} ~= /^https:\/\/grpc\.biliapi\.net\/bilibili\.app\.(view\.v1\.View\/TFInfo|viewunite\.v1\.View\/(PlayPause|ViewEndPage))$/i then response.body.mock("text", "AAAAAAA=", 200, true)
 response if ${url} ~= /^https:\/\/grpc\.biliapi\.net\/bilibili\.app\.(interface\.v1\.(Teenagers\/ModeStatus|Search\/DefaultWords)|view\.v1\.View\/TFInfo|viewunite\.v1\.View\/(PlayPause|ViewEndPage))$/i then response.header.add("grpc-status", "0")
 response if ${url} ~= /^https:\/\/api\.bilibili\.com\/x\/pd-proxy\/tracker\?/i then response.json.jq(".data[][]?=\"stun.chat.bilibili.com:3478\"")
+response if ${url} ~= /^https:\/\/api\.live\.bilibili\.com\/xlive\/open-interface\/v2\/tracker\/conf\?/i then response.json.jq(".data.domains=[\"wss://tracker.chat.bilibili.com\"]")
 response if ${url} ~= /^https:\/\/api\.bilibili\.com\/pgc\/view\/v2\/app\/season\?/i then response.json.jq("del(.data.payment)")
 response if ${url} ~= /^https:\/\/api\.bilibili\.com\/pgc\/page\/channel\?/i then response.json.jq(".data.modules |= map(select(.type != \"TIP\") | if .type == \"BANNER\" then .module_data.items |= map(select(.url | startswith(\"https://www.bilibili.com/blackboard/era/\") | not)) else . end)")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/resource\/show\/skin\?/i then response.json.delete("data.common_equip")
-response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/resource\/show\/tab\/v2\?/i then response.json.jq_file("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/kokoryh_bilibili.tab.jq")
-response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/splash\/(list|show|event\/list2)\?/i then response.json.jq(".data |= with_entries(if .key | IN(\"show\", \"event_list\") then .value = [] else . end)")
+response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/resource\/show\/tab\/v2\?/i then response.json.jq_file("https://github.com/ifflagged/Romeo/raw/main/Modules/JavaScript/Kelee/Bilibili_remove_ads/kelee_tab_Bilibili_remove_ads.jq")
+response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/splash\/(show|event\/list2)\?/i then response.json.jq(".data |= with_entries(if .key | IN(\"show\", \"event_list\") then .value = [] else . end)")
+response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/splash\/list\?/i then response.body.mock("text", "{\"code\":0,\"message\":\"OK\",\"ttl\":1,\"data\":{\"max_time\":0,\"min_interval\":31536000,\"pull_interval\":31536000,\"keep_ids\":[],\"show\":[],\"list\":[{}],\"splash_request_id\":\"\"}}", 200)
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/feed\/index\?/i then response.json.jq("if .data.items then .data.items |= map(select((.banner_item == null) and (.ad_info == null) and (.card_goto == \"av\") and (.card_type | IN(\"small_cover_v2\", \"large_cover_single_v9\", \"large_cover_v1\")))) end")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/feed\/index\/story\?/i then response.json.jq("if .data.items then .data.items |= map(select((.ad_info == null) and (.card_goto | IN(\"vertical_ad_av\", \"vertical_ad_live\", \"vertical_ad_picture\") | not)) | del(.story_cart_icon, .free_flow_toast, .image_infos, .course_info, .game_info)) end")
-response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/account\/mine(\/ipad)?\?/i then response.json.jq_file("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/kokoryh_bilibili.mine.jq")
+response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/account\/mine(\/ipad)?\?/i then response.json.jq_file("https://github.com/ifflagged/Romeo/raw/main/Modules/JavaScript/Kelee/Bilibili_remove_ads/kelee_mine_Bilibili_remove_ads.jq")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/account\/myinfo\?/i then response.json.jq(".data.vip |= if . != null and .status == 0 then . + { status: 1, type: 2, due_date: 9005270400000, role: 15 } else . end")
 
 # > 哔哩哔哩漫画
@@ -5581,13 +5585,12 @@ request if ${url} ~= /^https?:\/\/pocketuni\.net\/\?app=api&mod=Message&act=ad/i
 # hostname = api.coolapk.com, www.coolapk.com
 # ^https?:\/\/api\.coolapk\.com\/v6\/search\?.*type=hotSearch reject-dict
 request if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/search\?.*type=hotSearch/i then reject_dict(200)
-response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/feed\/detail\?/i then response.json.jq(".data.hotReplyRows |= if . then map(select(.id?)) else . end | .data.topReplyRows |= if . then map(select(.id?)) else . end | reduce (\"detailSponsorCard\", \"include_goods\", \"include_goods_ids\") as $key (.; .data[$key] = [])")
+response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/feed\/detail\?/i then response.json.jq(".data.hotReplyRows |= if . then map(select(.id?)) else . end | .data.topReplyRows |= if . then map(select(.id?)) else . end | reduce (\"detailSponsorCard\", \"include_goods\", \"include_goods_ids\") as $key (.; .data[$key]=[])")
 response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/feed\/replyList/i then response.json.jq("if .data? and ((.data | type) == \"array\") and (.data | length > 0) then .data |= map(select(.id?)) else . end")
 response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/main\/dataList/i then response.json.jq(".data |= (if (type==\"array\" and length>0) then map(select((.entityTemplate!=\"sponsorCard\") and (.title!=\"精选配件\"))) else . end)")
-response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/main\/indexV8/i then response.json.jq(".data |= map(select((.entityTemplate? != \"sponsorCard\") and (.entityId != 8639 and .entityId != 29349 and .entityId != 33006 and .entityId != 32557 and .entityId != 28621) and ((.title? // \"\") | test(\"值得买|红包\") | not)))")
-response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/main\/init/i then response.json.jq("del(.data[]? | select(.entityId == 944 or .entityId == 945 or .entityId == 6390 or .entityId == 24455 or .entityId == 36839 or .entityId == 1635 or .title == \"关注\")) | .data |= map(if .entities then .entities |= map(select(.entityId != 1635 and .entityId != 2261 and .entityId != 1633 and .entityId != 413 and .entityId != 417 and .entityId != 1754 and .entityId != 1966 and .entityId != 2274 and .entityId != 1170 and .entityId != 1175 and .entityId != 1190 and .entityId != 2258 and .title != \"关注\" and .title != \"酷品\")) else . end)")
-response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/page\/dataList/i then response.json.jq(".data |= map(select(.title != \"话题热议\" and .title != \"酷安热搜\" and .entityTemplate? != \"imageScaleCard\" and .entityTemplate? != \"sponsorCard\" and .entityId != 36104 and .entityId != 24309 and .entityId != 12889 and .entityId != 21063 and .entityId != 35730 and .entityId != 35846 and .entityId != 28374 and .entityId != 28375 and .entityId != 27332 and .entityId != 20090 and .entityId != 28773 and .entityId != 29343 and .entityId != 21106) | if .entities then .entities |= map(select(.title != \"睡个好觉需要什么？\")) else . end)")
-response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/account\/loadConfig\?key=my_page_card_config/i then response.json.jq(".data |= map(select(.entityType != \"textLink\" and (.entityId != 1001 and .entityId != 1003 and .entityId != 1004 and .entityId != 1005)) | if .entities then .entities |= map(select(.entityType != \"textLink\")) else . end)")
+response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/main\/indexV8/i then response.json.jq(".data |= (if length > 0 then map(select((.entityTemplate != \"sponsorCard\") and (.entityId != 8639 and .entityId != 29349 and .entityId != 33006 and .entityId != 32557) and ((.title // \"\" | test(\"值得买|红包\")) | not))) else . end)")
+response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/main\/init/i then response.json.jq(".data |= map(select(.entityId != 944 and .entityId != 945 and .entityId != 6390) | if .entityId == 20131 then .entities |= map(select(.title != \"酷品\")) else . end)")
+response if ${url} ~= /^https:\/\/api\.coolapk\.com\/v6\/page\/dataList/i then response.json.jq("if (.data | length > 0) then .data |= map(select((.title? != \"酷安热搜\") and (.entityTemplate? != \"imageScaleCard\") and (.entityTemplate? != \"sponsorCard\"))) else . end")
 
 # > 酷我音乐
 # hostname = audiobookpay.kuwo.cn, mgxhtj.kuwo.cn, nmobi.kuwo.cn, searchrecterm.kuwo.cn, musicpay.kuwo.cn, vip1.kuwo.cn
@@ -8097,11 +8100,12 @@ response if ${url} ~= /^https:\/\/api\.boohee\.com\/meta-interface\/v1\/index\/p
 response if ${url} ~= /^https:\/\/api\.boohee\.com\/open-interface\/v1\/string\/market_page\?title=metabolism_config$/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_bohe_ads.js") with enable=${bohejmkh_enable}, tag="薄荷健康", timeout=60, requires_body=true
 
 # > 哔哩哔哩
-# B站：空降助手已于 v2.5.1 摘除（不再向第三方服务器发送所看视频的 ID）；保留请求/响应净化。
+# B站：v2.10.4 按用户指令对齐 KeLee 最新版（2026-10-02）；空降助手随 KeLee 版回归，但 sponsorBlock 默认关、不开不外发。
 # hostname = grpc.biliapi.net, app.bilibili.com, api.bilibili.com, api.live.bilibili.com, line3-h5-mobile-api.biligame.com
-request if ${url} ~= /^https:\/\/(grpc\.biliapi\.net|app\.bilibili\.com)\/bilibili\.(app\.viewunite\.v1\.View\/View|main\.community\.reply\.v1\.Reply\/MainList)$/i then script("https://raw.githubusercontent.com/kokoryh/Sparkle/caf42c487706787431109cc105e93fcec8fc61cd/dist/bilibili.protobuf.request.js", {${purifyComment}, ${logLevel}}) with enable=${optimizeRequest}, tag="bilibili.request", timeout=10, requires_body=true, binary_body_mode=true
-response if ${url} ~= /^https:\/\/api\.live\.bilibili\.com\/xlive\/(app-interface\/v2\/index\/feed|app-room\/v1\/index\/getInfoBy(Room|User))\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/kokoryh_bilibili.json.js") with tag="bilibili.live", requires_body=true
-response if ${url} ~= /^https:\/\/(grpc\.biliapi\.net|app\.bilibili\.com)\/bilibili\.(app\.(show\.v1\.Popular\/Index|dynamic\.v2\.Dynamic\/DynAll|view(unite)?\.v1\.View\/(View|ViewProgress|RelatesFeed|AIRelateAsync)|playurl\.v1\.PlayURL\/PlayView|playerunite\.v1\.Player\/PlayViewUnite)|polymer\.app\.search\.v1\.Search\/SearchAll|community\.service\.dm\.v1\.DM\/DmView|main\.community\.reply\.v1\.Reply\/MainList|pgc\.gateway\.player\.v2\.PlayURL\/PlayView)$/i then script("https://raw.githubusercontent.com/kokoryh/Sparkle/caf42c487706787431109cc105e93fcec8fc61cd/dist/bilibili.protobuf.response.js", {${displayUpList}, ${purifyComment}, ${logLevel}}) with tag="bilibili.protobuf", requires_body=true, binary_body_mode=true
+request if ${url} ~= /^https:\/\/(?:grpc\.biliapi\.net|app\.bilibili\.com)\/bilibili\.community\.service\.dm\.v1\.DM\/DmSegMobile$/i then script("https://github.com/ifflagged/Romeo/raw/main/Modules/JavaScript/Kelee/Bilibili_remove_ads/kelee_Bilibili_proto_request_kokoryh.js", {${logLevel}}) with enable=${sponsorBlock}, tag="空降助手", timeout=10, requires_body=true, binary_body_mode=true
+request if ${url} ~= /^https:\/\/(?:grpc\.biliapi\.net|app\.bilibili\.com)\/bilibili\.(?:app\.viewunite\.v1\.View\/View|main\.community\.reply\.v1\.Reply\/MainList)$/i then script("https://github.com/ifflagged/Romeo/raw/main/Modules/JavaScript/Kelee/Bilibili_remove_ads/kelee_Bilibili_proto_request_kokoryh.js", {${purifyComment}, ${logLevel}}) with enable=${optimizeRequest}, tag="请求处理", timeout=10, requires_body=true, binary_body_mode=true
+response if ${url} ~= /^https:\/\/api\.live\.bilibili\.com\/xlive\/(?:app-interface\/v2\/index\/feed|app-room\/v1\/index\/getInfoBy(?:Room|User))\?/i then script("https://github.com/ifflagged/Romeo/raw/main/Modules/JavaScript/Kelee/Bilibili_remove_ads/kelee_Bilibili_json_kokoryh.js") with tag="移除直播间广告", requires_body=true
+response if ${url} ~= /^https:\/\/(grpc\.biliapi\.net|app\.bilibili\.com)\/bilibili\.(app\.(show\.v1\.Popular\/Index|dynamic\.v2\.Dynamic\/DynAll|view(unite)?\.v1\.View\/(View|ViewProgress|RelatesFeed|AIRelateAsync)|playurl\.v1\.PlayURL\/PlayView|playerunite\.v1\.Player\/PlayViewUnite)|polymer\.app\.search\.v1\.Search\/SearchAll|community\.service\.dm\.v1\.DM\/DmView|main\.community\.reply\.v1\.Reply\/MainList|pgc\.gateway\.player\.v2\.PlayURL\/PlayView)$/i then script("https://github.com/ifflagged/Romeo/raw/main/Modules/JavaScript/Kelee/Bilibili_remove_ads/kelee_Bilibili_proto_response_kokoryh.js", {${displayUpList}, ${purifyComment}, ${sponsorBlock}, ${logLevel}}) with tag="ProtoBuf处理", requires_body=true, binary_body_mode=true
 
 # > 哔哩哔哩漫画
 # hostname = manga.bilibili.com, i*.hdslb.com

@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.10.3（远程脚本）
+# Loon 广告拦截修复版 v2.10.4（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.10.4（2026-11-11）：按用户指令，哔哩哔哩与酷安两段整体对齐 KeLee 最新版（文件头 2026-10-02，Romeo 镜像现行版；改前已审计：脚本为 kokoryh Sparkle 2026-09-06 构建、minify 但有源码引用非混淆，唯一外发是空降助手开时向 bsbsb.top 拉片段数据）。B 站：splash 恢复 KeLee 两段式（show/event/list2 用 jq 清空 + list 用 mock 空包 list:[{}]，即 v2.10.1 按 fmz200 口径删掉的那条 mock 随 KeLee 版回归）；tab/mine 的 jq_file 换 KeLee 版地址；proto request/response 与直播 json 脚本换 KeLee 版（浮动 Romeo main，不再 pin Sparkle caf42c4）；新增直播 tracker/conf 一条 jq；参数对齐 KeLee（logLevel 默认改 off、displayUpList 增加 auto、新增 sponsorBlock 空降助手开关默认关 + bsbsb.top PROXY 规则 + DmSegMobile 绑定——v2.5.1 摘除的空降随 KeLee 版回归，默认关、不开不外发，用户可一句话再摘）。酷安：init/indexV8/page-dataList 三条 jq 换 KeLee 名单（init 仅 944/945/6390+20131 酷品，indexV8 仅 8639/29349/33006/32557），删 KeLee 没有的 loadConfig 一条；两处偏差如实记录：①KeLee 原文 init/indexV8 用 index(.entityId) 写法，在标准 jq 下参数绑定到数组会报错/全删（本地 GNU jq 1.7 实测复现），故这两条用等价显式 != 写法实现 KeLee 的同一 ID 名单（两种 jq 方言下效果一致），其余各行与 KeLee 原文逐字一致（集合比对零缺失）；②酷安 URL 重定向脚本（自托管、无外发）保留，KeLee 版无此项。保留未动：v2.9.0 的酷安 SDK 域名池（含穿山甲备用域/快手联盟等）、全局规则段。全部 jq 已本地实测（init/indexV8/page/main dataList/feed detail/splash + tab/mine 两份远程 jq 文件），jq 仍全在 [Rewrite]（114 条）。待真机验证：先确认国内软件网络正常，再看 B 站开屏/酷安开屏。
 
 v2.10.3（2026-11-11）：紧急回滚。用户更新 v2.10.2 后报告国内软件集体断网，立即全量回滚 v2.10.2 的全部改动（B 站 splash 四路升级 jq、mengqi/peak 两条 reject-dict、酷安 gdtimg.com 整域），规则内容恢复为 v2.10.1（2070f92）的已知可用状态，仅版本号升为 2.10.3 以便 Loon 拉取更新。断网元凶待定位：v2.10.2 里唯一带全局跨 App 影响面的是 [Rule] 段的 gdtimg.com 整域 REJECT（其余改动都只挂在 bilibili 主机上、影响不到其他 App），为首要嫌疑；确认网络恢复后逐项二分，不再整包合入。
 
