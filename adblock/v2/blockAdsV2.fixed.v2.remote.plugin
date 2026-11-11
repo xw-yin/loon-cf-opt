@@ -1,4 +1,4 @@
-#!name=广告拦截&净化合集（远程修复 v2.10.2）
+#!name=广告拦截&净化合集（远程修复 v2.10.3）
 #!desc=(支持约730款APP/小程序)针对部分APP和小程序广告进行拦截，某些APP要清除缓存或者重新安装拦截广告才会生效！规则明细可以查看本插件的注释
 #!author=奶思[https://github.com/fmz200]
 #!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AdblockPlus.png
@@ -1425,9 +1425,6 @@ AND,((DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com),(PROTOCOL,QUIC)),REJECT
 AND,((DOMAIN-SUFFIX,pglstatp-toutiao.com),(PROTOCOL,QUIC)),REJECT
 AND,((DOMAIN-SUFFIX,kuaishouzt.com),(PROTOCOL,QUIC)),REJECT
 AND,((DOMAIN-SUFFIX,kwaiad.com),(PROTOCOL,QUIC)),REJECT
-# v2.10.2：补优量汇素材整域 gdtimg.com（此前只有 ugdtimg 子域后缀与几个具体主机，整域漏）
-DOMAIN-SUFFIX,gdtimg.com, REJECT
-AND,((DOMAIN-SUFFIX,gdtimg.com),(PROTOCOL,QUIC)),REJECT
 
 # > 酷狗音乐
 DOMAIN, adsfile.bssdlbig.kugou.com, REJECT
@@ -4583,9 +4580,7 @@ response if ${url} ~= /^https:\/\/api\.bilibili\.com\/pgc\/view\/v2\/app\/season
 response if ${url} ~= /^https:\/\/api\.bilibili\.com\/pgc\/page\/channel\?/i then response.json.jq(".data.modules |= map(select(.type != \"TIP\") | if .type == \"BANNER\" then .module_data.items |= map(select(.url | startswith(\"https://www.bilibili.com/blackboard/era/\") | not)) else . end)")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/resource\/show\/skin\?/i then response.json.delete("data.common_equip")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/resource\/show\/tab\/v2\?/i then response.json.jq_file("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/kokoryh_bilibili.tab.jq")
-response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/splash\/(list|show|event\/list2|brand\/list)\?/i then response.json.jq("if .data then del(.data.account, .data.preload) | .data |= with_entries(if .key | IN(\"show\", \"event_list\") then .value = [] else . end) | if (.data | has(\"force_show_times\")) then .data.force_show_times = 0 else . end | if (.data | has(\"max_time\")) then .data.max_time = 0 else . end | if (.data | has(\"min_interval\")) then .data.min_interval = 31536000 else . end | if (.data | has(\"pull_interval\")) then .data.pull_interval = 31536000 else . end | if ((.data.list | type) == \"array\") then .data.list |= map(.duration = 0 | .enable_pre_download = false | .begin_time = 3818332800 | .end_time = 3818419199) else . end else . end")
-request if ${url} ~= /^https:\/\/api\.bilibili\.com\/x\/mengqi\/v1\/resource/i then reject_dict(200)
-request if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/resource\/peak\/download/i then reject_dict(200)
+response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/splash\/(list|show|event\/list2)\?/i then response.json.jq(".data |= with_entries(if .key | IN(\"show\", \"event_list\") then .value = [] else . end)")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/feed\/index\?/i then response.json.jq("if .data.items then .data.items |= map(select((.banner_item == null) and (.ad_info == null) and (.card_goto == \"av\") and (.card_type | IN(\"small_cover_v2\", \"large_cover_single_v9\", \"large_cover_v1\")))) end")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/feed\/index\/story\?/i then response.json.jq("if .data.items then .data.items |= map(select((.ad_info == null) and (.card_goto | IN(\"vertical_ad_av\", \"vertical_ad_live\", \"vertical_ad_picture\") | not)) | del(.story_cart_icon, .free_flow_toast, .image_infos, .course_info, .game_info)) end")
 response if ${url} ~= /^https:\/\/app\.bilibili\.com\/x\/v2\/account\/mine(\/ipad)?\?/i then response.json.jq_file("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/kokoryh_bilibili.mine.jq")
