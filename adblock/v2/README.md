@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.10.1（远程脚本）
+# Loon 广告拦截修复版 v2.10.2（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.10.2（2026-11-11）：按用户建议横查其他插件后的定点补强。fmz200 现行版无增量（B 站与 v2.10.1 逐字齐平；酷安仍挂 2023 年脚本、init 名单窄于现行 jq，换上游是降级），真增量来自 RuCu6（2026-11-06，明文脚本）/Biliverse/Thelongdarkorg 的开屏口径，用自写 jq 复刻、不引任何第三方脚本（Biliverse 打包 bundle 内含 bsbsb 空降外发，不收）：①B 站 splash 覆盖扩到 brand/list 品牌开屏（四路共用一条 jq）；②同一条 jq 升级为删 account/preload、force_show_times/max_time 置 0、min/pull_interval 拉长到一年，并逐项中和 .data.list 条目（duration=0、关预下载、起止时间推到 2090 年）——v2.10.1 按上游口径保留的 .data.list 正是开屏条目本身所在；不倒退回整包 mock；③B 站新增 x/mengqi/v1/resource 与 x/resource/peak/download 两条 reject-dict（开屏资源下发/预载）。④酷安补优量汇素材整域 gdtimg.com 的 DOMAIN-SUFFIX REJECT + QUIC 配对（Thelongdarkorg 2026-10-28 的 GroMore 聚合池名单与 v2.9.0 已补的穿山甲备用域/pglstatp/快手联盟逐项对过，仅剩此整域漏）。jq 已用本地 jq 1.7 对 5 组样本实测（完整 list 响应、show 最小响应、brand 响应、data=null、缺字段响应）全过，正则四路命中实测，jq 仍全在 [Rewrite]（114 条、[Script] 段 0）。纯规则改动，无新脚本、无 MITM 变动。待真机验证：B 站冷启两次（先在 B 站设置里清一次缓存，排除已预下载的开屏素材）、酷安冷启两次。
 
 v2.10.1（2026-11-11）：修哔哩哔哩开屏复发。现行写法里 splash/list 用整段 mock 的旧格式冻结假响应，与上游 fmz200 现行版分叉（上游已删 mock）；疑 B 站改了 splash/list 的字段/校验后客户端不再认冻结响应。按用户拍板对齐上游：删 mock，list/show/event/list2 三路合并为一条 jq 清空 show/event_list（与上游同一表达式），真机冷启验证待回报。诚实保留：该 jq 按上游口径只清 show/event_list、.data.list 原样保留；若冷启仍出开屏，下一步看 Loon 请求日志确认广告落点再定点处理。纯规则改动，无新脚本、无 MITM 变动。
 
