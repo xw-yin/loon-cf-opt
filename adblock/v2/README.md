@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.10.0（远程脚本）
+# Loon 广告拦截修复版 v2.10.1（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.10.1（2026-11-11）：修哔哩哔哩开屏复发。现行写法里 splash/list 用整段 mock 的旧格式冻结假响应，与上游 fmz200 现行版分叉（上游已删 mock）；疑 B 站改了 splash/list 的字段/校验后客户端不再认冻结响应。按用户拍板对齐上游：删 mock，list/show/event/list2 三路合并为一条 jq 清空 show/event_list（与上游同一表达式），真机冷启验证待回报。诚实保留：该 jq 按上游口径只清 show/event_list、.data.list 原样保留；若冷启仍出开屏，下一步看 Loon 请求日志确认广告落点再定点处理。纯规则改动，无新脚本、无 MITM 变动。
 
 v2.10.0（2026-11-10）：按用户指令整段换掉 YouTube 实现——devchristian1337 版后台播放无效，改用 Kelee 收录的 Maasea 版「YouTube去广告」（.lpx 头日期 2026-10-02）。换入前已完成审计并报用户：Maasea 官方构建（2026-07-19 build，esbuild 打包非混淆），画中画/后台播放靠 protobuf 层改 pictureInPictureAbility/backgroundAbility 能力字段 + initplayback 的 UMP 处理；唯一外发是 initplayback 命中缓存 key 时重定向到作者 Worker（init-stream.maasea.workers.dev）处理 UMP，与此前审过的 fking 版同一套核心；存储只读写自有两键（YouTubeConfig/YouTubeAdvertiseInfo），无凭据处理。两脚本 pin 在 Romeo @e8135d0b9d，哈希与审计版逐字节一致（request af064689…、response b926d339…）。变更面：参数 16→5（隐藏上传/Shorts/选段按钮、字幕翻译语言 captionLang、调试模式）、绑定 12→3、Rewrite 删 initplayback 的 reject_video（会挡住新脚本处理 initplayback）；Alt-Svc clear 特意保留，让 googlevideo 保持走 TCP、initplayback 能稳定进脚本。devchristian 独有的屏蔽频道/日志工具/画质研究随之移除；字幕翻译改由 captionLang 在响应侧处理。待真机验证：画中画、后台播放（锁屏/切 App 续播）、字幕加载与翻译、信息流/播放页广告、三个底栏按钮开关、YouTube Music。
 
