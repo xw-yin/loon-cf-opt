@@ -1,0 +1,50 @@
+#!name=小红书去广告
+#!desc=从去广告合集 v2.10.4 原样拆出的小红书单项：开屏/搜索页/信息流广告清理、去水印、解除下载限制。脚本与合集同一 pin，未改一行。
+#!author=fmz200（合集原作者）
+#!homepage=https://github.com/fmz200/wool_scripts
+#!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AdblockPlus.png
+#!date=2026-11-16
+#!system=iOS, iPadOS
+#!loon_version=3.5.1(998)
+
+# 来源：xw-yin/loon-cf-opt adblock/v2/blockAdsV2.fixed.v2.remote.plugin @ v2.10.4 (afe4876)
+# 审计（2026-11-16）：fmz200_xiaohongshu.js 可读源码 1174 行已读完；
+# 唯一外发能力在通用 Env() 样板 get/post 里，脚本本体一次也没调用（无 $.get/$.post、无 eval）；
+# 只改响应体 + 本地 $.setdata/$.getdata 存去水印图片地址，不碰 Cookie/Token、不发第三方。
+# MITM 只有小红书自家 10 个主机，无银行/支付类主机。
+
+[Argument]
+xhs_enable = switch,true,false,tag=小红书-脚本开关
+
+[Rule]
+DOMAIN, ads-img-qc.xhscdn.com, REJECT
+DOMAIN, ads-video-al.xhscdn.com, REJECT
+DOMAIN, ads-video-qc.xhscdn.com, REJECT
+DOMAIN, t-ads.xiaohongshu.com, REJECT
+AND, ((PROTOCOL, QUIC), (DOMAIN-SUFFIX, xiaohongshu.com)), REJECT
+
+[Rewrite]
+request if ${url} ~= /^https:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v1\/surprisebox\/(?:get_style|open|submit_action)/i then reject_dict(200)
+request if ${url} ~= /^https?:\/\/www\.(xiaohongshu|rnote)\.com\/api\/marketing\/box\/trigger\?/i then reject_dict(200)
+request if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/note\/guide\?/i then reject_dict(200)
+request if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/note\/detailfeed\/preload\?/i then reject_dict(200)
+request if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/guide\/user_banner/i then reject_dict(200)
+request if ${url} ~= /^https?:\/\/www\.(xiaohongshu|rnote)\.com\/api\/sns\/(v\d+\/ads\/resource|v\d+\/hey\/\w+\/hey_gallery)/i then reject_dict(200)
+request if ${url} ~= /^https?:\/\/ci\.(xiaohongshu|rnote)\.com\/system_config\/watermark/i then reject_img(200)
+
+[Script]
+response if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/search\/(banner|hot)_list/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书搜索页", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/search\/(hint|trending)\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书搜索页", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/(so|edith)\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/search\/notes\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书搜索页", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/system_service\/config\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书开屏广告", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/system_service\/splash_config/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书开屏广告", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/note\/widgets/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书详情页", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/(edith|rec|www)\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/note\/(imagefeed|live_photo\/save)/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书图片视频水印", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/(edith|rec|www)\.(xiaohongshu|rnote)\.com\/api\/sns\/v\d+\/(followfeed|homefeed)\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书图片视频水印", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/(edith|rec|www)\.(xiaohongshu|rnote)\.com\/api\/sns\/(v2\/note\/feed|v3\/note\/videofeed)\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书图片视频水印", timeout=60, requires_body=true
+response if ${url} ~= /^https?:\/\/(edith|rec|www)\.(xiaohongshu|rnote)\.com\/api\/sns\/(v4\/note\/videofeed|v10\/note\/video\/save)\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书图片视频水印", timeout=60, requires_body=true
+response if ${url} ~= /^https:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/(v5\/note\/comment\/list|v3\/note\/comment\/sub_comments)\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书评论区去水印存储", timeout=60, requires_body=true
+response if ${url} ~= /^https:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v1\/interaction\/comment\/video\/download\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书评论区去水印下载", timeout=60, requires_body=true
+
+[MITM]
+hostname = edith.xiaohongshu.com, www.xiaohongshu.com, ci.xiaohongshu.com, rec.xiaohongshu.com, so.xiaohongshu.com, edith.rnote.com, www.rnote.com, ci.rnote.com, so.rnote.com, rec.rnote.com

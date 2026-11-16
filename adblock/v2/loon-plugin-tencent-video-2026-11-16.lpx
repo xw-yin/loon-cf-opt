@@ -1,0 +1,26 @@
+#!name=腾讯视频去广告
+#!desc=从去广告合集 v2.10.4 原样拆出的腾讯视频单项（sooyaaabo 版）：开屏/贴片/暂停广告、信息流广告、底部 tab 清理。脚本与合集同一 pin，未改一行。
+#!author=sooyaaabo（合集内腾讯视频一节作者）
+#!homepage=https://github.com/fmz200/wool_scripts
+#!date=2026-11-16
+#!system=iOS, iPadOS
+#!loon_version=3.5.1(998)
+
+# 来源：xw-yin/loon-cf-opt adblock/v2/blockAdsV2.fixed.v2.remote.plugin @ v2.10.4 (afe4876)
+# 审计（2026-11-16）：loon_TencentVideo.js 可读源码 1599 行已读完；
+# 无 fetch/$httpClient/$task/eval，纯内存 JCE/JSON 体改写，与合集文件内「已审计无外发」一致。
+# 注意：合集里腾讯视频的 [Rewrite] 一节全是注释行（等于零覆盖），未拆进来；
+# 生效靠 5 条脚本绑定 + 开屏域名 1 条。MITM 只有腾讯视频 4 个主机，无银行/支付类主机。
+
+[Rule]
+DOMAIN-SUFFIX, splashqqlive.gtimg.com, REJECT
+
+[Script]
+request if ${url} ~= /^https?:\/\/i\.video\.qq\.com\/(?:\?.*)?$/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/3455047889/Modules/JavaScript/sooyaaabo/TencentVideo/loon_TencentVideo.js") with tag="[腾讯视频]请求体处理", timeout=10, requires_body=true, binary_body_mode=true
+response if ${url} ~= /^https?:\/\/i\.video\.qq\.com\/(?:\?.*)?$/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/3455047889/Modules/JavaScript/sooyaaabo/TencentVideo/loon_TencentVideo.js") with tag="[腾讯视频]响应体处理", timeout=10, requires_body=true, binary_body_mode=true
+response if ${url} ~= /^https?:\/\/iacc\.qq\.com\/(?:\?.*)?$/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/3455047889/Modules/JavaScript/sooyaaabo/TencentVideo/loon_TencentVideo.js") with tag="[腾讯视频]JCE处理", timeout=10, requires_body=true, binary_body_mode=true
+response if ${url} ~= /^https?:\/\/config\.ab\.qq\.com\/tab\/GetTabRemoteConfig(?:\?.*)?$/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/3455047889/Modules/JavaScript/sooyaaabo/TencentVideo/loon_TencentVideo.js") with tag="[腾讯视频]配置处理", timeout=10, requires_body=true, binary_body_mode=true
+response if ${url} ~= /^https:\/\/rdelivery\.qq\.com\/v1\/sdkconfig\/get(?:\?.*)?$/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/3455047889/Modules/JavaScript/sooyaaabo/TencentVideo/loon_TencentVideo.js") with tag="[腾讯视频]配置处理", timeout=10, requires_body=true
+
+[MITM]
+hostname = i.video.qq.com, iacc.qq.com, config.ab.qq.com, rdelivery.qq.com
