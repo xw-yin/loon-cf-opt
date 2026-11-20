@@ -1,12 +1,12 @@
 {
   "repository": "xw-yin/loon-cf-opt",
   "directory": "adblock/v2",
-  "date": "2026-11-03",
+  "date": "2026-11-20",
   "plugin": {
     "name": "blockAdsV2.fixed.v2.remote.plugin",
     "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
-    "bytes": 524502,
-    "sha256": "8ea769e525826cc8af942c6ff6005e4291069a2b88424eab1c44d0dfc27b09b2"
+    "bytes": 191642,
+    "sha256": "0686c4f0aee32064afb11d38ca7f7057980df4126505a56c81fde6a8fff4725a"
   },
   "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
   "scripts": [
@@ -48,6 +48,33 @@
       "pinned_in_commit": "c6953adabdc0dabd5b839cfe4bc4cd65a7f1e626",
       "purpose": "百度网盘净化+会员/倍速解锁（ddgksf2013 bdpan.unlock.js V1.0.2 的洁净还原版，webcrack 反混淆 + 沙箱 11 组样本逐字比对一致；原版零网络/零存储；还原版仅将原载荷里 3 处作者 Telegram 推广链接置空）：streaming 请求 type 改写 M3U8_AUTO_1080、membership/user 伪造 SVIP 载荷、getsyscfg/afd/cardinfos 净化",
       "bindings": 2
+    },
+    {
+      "name": "fmz200_cmschina.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/fd168b0a04b5b3fe119939814b7d4ad62ded1c16/adblock/v2/fmz200_cmschina.js",
+      "bytes": 408,
+      "sha256": "0d65a79b61b6ef85c88110538e21ca4f5aafe9b7acc6c3272b17ef7361c2c8b6",
+      "bindings": 1,
+      "pinned_in_commit": "fd168b0a04b5b3fe119939814b7d4ad62ded1c16",
+      "purpose": "招商证券去广告脚本（fmz200 原版，审计通过：纯 JSON 字段清空，无外发）"
+    },
+    {
+      "name": "fmz200_zhihu.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/fd168b0a04b5b3fe119939814b7d4ad62ded1c16/adblock/v2/fmz200_zhihu.js",
+      "bytes": 7358,
+      "sha256": "544fd88207b9d7005bb5cf427a1994028f91a95a65fde3db72a501983bff99f4",
+      "bindings": 11,
+      "pinned_in_commit": "fd168b0a04b5b3fe119939814b7d4ad62ded1c16",
+      "purpose": "知乎去广告脚本（fmz200 原版，审计通过：纯 JSON 过滤，无外发；root/tab 绑定未接，本地 jq 保留 ring_tab）"
+    },
+    {
+      "name": "zirawell_dianping.js",
+      "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/fd168b0a04b5b3fe119939814b7d4ad62ded1c16/adblock/v2/zirawell_dianping.js",
+      "bytes": 2257,
+      "sha256": "78971da6855858d1a6737872209cfc0aaaf7755fbe8da19f4115a03591820252",
+      "bindings": 2,
+      "pinned_in_commit": "fd168b0a04b5b3fe119939814b7d4ad62ded1c16",
+      "purpose": "大众点评去广告脚本（zirawell 原版，审计通过：开屏 404/1px GIF + picassovc 改名，无外发）"
     }
   ],
   "local_plugin_sha256": "127a860408c089317fa3eacdf850b39ac71950dc941d48a1f84b0af1ce37d6c5",

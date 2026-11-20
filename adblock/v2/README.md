@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.10.4（远程脚本）
+# Loon 广告拦截修复版 v2.11.0（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.11.0（2026-11-20）：按 2026-11-16 导出的应用列表（302 个）精简 + fmz200 2026-11-16 真增量。精简：727→92 章节、8668→2716 行，开关 90→48 个，MITM 925→168 主机；删滴滴/快手/饿了么/优酷/芒果 TV/Soul/Blued/喜马拉雅/今日头条/携程等未装 App，通用广告联盟/生态级块（腾讯系/字节跳动/广告联盟等）与穿山甲/优量汇/快手联盟 SDK 块保留。更新（纯规则）：京东直播小窗、大众点评 3 条、币安节日开屏、农业银行 3 条、招商银行 2 条、掌上生活 3 条、知乎 6 条、Spotify gae2 广告接口；[Rule] 补 QQ 音乐 7 域、字节跳动 9 域、广告联盟 6 条、小米 api.jr.mi.com、什么值得买 2 域、网易云音乐 4 域、京东 dns.jd.com、Google ads.youtube.com；网易云音乐 e?api 放宽为 x?e?api（新 xapi 接口）。新脚本（先审计后合入，均自托管 pin fd168b0a）：招商证券 cmschina.js（408B，纯 JSON 清空）、知乎 zhihu.js（7358B，纯 JSON 过滤，11 绑定；root/tab 绑定未接——本地 jq 保留 ring_tab，脚本会再缩到 3 个）、大众点评 dianping.js（2257B，开屏 404/1px GIF + picassovc 改名）；新增开关 vihu_enable、davsdmpk_enable。另修 5 处旧 MITM 缺口：Reddit gql.reddit.com/gql-fed.reddit.com、IT之家 napi.ithome.com、财新 gg.caixin.com、腾讯视频 i.video.qq.com/iacc.qq.com/config.ab.qq.com——这些脚本绑定此前因缺 MITM 未生效。未收：fmz200 quark.js（jsjiami v7 全混淆，按 2026-11-03 规矩不收，本地还原版继续用）；B 站 Sparkle 直链/DNS 解析规则（KeLee 2026-10-02 仍是最新，本地已有 grpc-status）；dns.google 与 DEST-PORT 4480/4483/9102（全局影响未证实）；cupid.iqiyi.com REJECT（与本地 DIRECT+脚本剥离 mixer 方案冲突）；sponsorBlock 默认开（保持关）；上游脚本源由 Romeo pin 换 fmz200 main 浮动的，全部保留 pin 不跟。农业银行 enjoy 规则：上游原文负向前瞻带空分支导致永不匹配，已去掉空分支再合入。待真机验证：更新后冷启招商证券/知乎/大众点评看开屏与信息流，确认国内软件网络正常。
 
 独立插件（2026-11-16）：因配置里去掉合集后小红书、腾讯视频没了去广告，把这两家从合集 v2.10.4 原样拆成独立 .lpx：loon-plugin-xiaohongshu-2026-11-16.lpx（fmz200 脚本 pin d27c811，[Rule] 5 + [Rewrite] 7 + [Script] 12，MITM 仅小红书自家 10 主机）、loon-plugin-tencent-video-2026-11-16.lpx（sooyaaabo 脚本 pin 3455047889，[Rule] 1 + [Script] 5，MITM 仅腾讯视频 4 主机）。规则与脚本逐字取自合集（MITM 主机清单单独成行、xhs_enable 开关除外），审计结论与合集内一致：小红书脚本本体无外发调用、不碰 Cookie/Token；腾讯视频脚本无 fetch/eval、纯内存改写；两插件均无银行/支付类 MITM 主机。
 
