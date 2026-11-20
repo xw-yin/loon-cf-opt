@@ -1,4 +1,4 @@
-#!name=广告拦截&净化合集（远程修复 v2.11.0）
+#!name=广告拦截&净化合集（远程修复 v2.11.1）
 #!desc=(支持约90款APP/小程序)针对部分APP和小程序广告进行拦截，某些APP要清除缓存或者重新安装拦截广告才会生效！规则明细可以查看本插件的注释
 #!author=奶思[https://github.com/fmz200]
 #!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AdblockPlus.png
@@ -94,6 +94,7 @@ captionLang = select,"zh-Hans","zh-Hant","ja","ko","en","off",tag=YouTube-字幕
 debug = switch,false,true,tag=YouTube-调试模式,desc=Maasea 脚本的调试模式，平时保持关闭
 vihu_enable = switch,true,false,tag=知乎-脚本开关
 davsdmpk_enable = switch,true,false,tag=大众点评-脚本开关
+yzku_enable = switch,true,false,tag=优酷-脚本开关
 
 [Rule]
 
@@ -960,6 +961,74 @@ DOMAIN-SUFFIX, api.jr.mi.com, REJECT
 # >>>>>>>>>>>>>>> ✅ Y ✅ <<<<<<<<<<<<<<
 
 # > 云闪付
+# > 优酷
+# hostname = acs.youku.com, push.m.youku.com, un-acs.youku.com
+DOMAIN-SUFFIX, partner.uc.cn, REJECT
+DOMAIN-SUFFIX, ubixioe.com, REJECT
+DOMAIN-SUFFIX, uczzd.cn, REJECT
+DOMAIN-SUFFIX, ranfenghd.com, REJECT
+DOMAIN-SUFFIX, zconfig.alibabausercontent.com, REJECT
+DOMAIN-SUFFIX, bgg.baidu.com, REJECT
+# DOMAIN-SUFFIX, gdt.qq.com, REJECT
+# DOMAIN-SUFFIX, sdk.e.qq.com, REJECT
+# DOMAIN-SUFFIX, mazu.m.qq.com, REJECT
+# DOMAIN-SUFFIX, snowflake.qq.com, REJECT
+# DOMAIN-SUFFIX, acz.youku.com, REJECT
+DOMAIN-SUFFIX, adx-core.youku.com, REJECT
+DOMAIN-SUFFIX, adx-open-service.youku.com, REJECT
+DOMAIN-SUFFIX, rhdc-acs.youku.com, REJECT
+# DOMAIN-SUFFIX, cad.youku.com, REJECT
+# DOMAIN-SUFFIX, sjarvis.taobao.com, REJECT
+DOMAIN, httpdns.alicdn.com, REJECT
+DOMAIN, adsmind.ugdtimg.com, REJECT
+DOMAIN, amdc.m.youku.com, REJECT
+DOMAIN, apiv4-iyes.youku.com, REJECT
+# DOMAIN, iyes.youku.com, REJECT
+# DOMAIN, mc.atm.youku.com, REJECT
+DOMAIN, yk-ssp.ad.youku.com, REJECT
+DOMAIN, ykad-data.youku.com, REJECT
+DOMAIN, ad.mobile.youku.com, REJECT
+DOMAIN-SUFFIX, ad.api.3g.tudou.com, REJECT
+DOMAIN-SUFFIX, ad.api.3g.youku.com, REJECT
+DOMAIN-SUFFIX, ad.api.mobile.youku.com, REJECT
+DOMAIN-SUFFIX, gamex.mobile.youku.com, REJECT
+# DOMAIN-SUFFIX, actives.youku.com, REJECT
+# DOMAIN-SUFFIX, store.tv.api.3g.youku.com, REJECT
+# DOMAIN-SUFFIX, store.xl.api.3g.youku.com, REJECT
+# DOMAIN-SUFFIX, a-dxk.play.api.3g.youku.com, REJECT
+# DOMAIN-SUFFIX, b.smartvideo.youku.com, REJECT
+# DOMAIN-SUFFIX, c.yes.youku.com, REJECT
+# DOMAIN-SUFFIX, das.api.youku.com, REJECT
+# DOMAIN-SUFFIX, das.mobile.youku.com, REJECT
+# DOMAIN-SUFFIX, dev-push.m.youku.com, REJECT
+# DOMAIN-SUFFIX, push.m.youku.com, REJECT
+# DOMAIN-SUFFIX, sdk.m.youku.com, REJECT
+# DOMAIN-SUFFIX, dl.g.youku.com, REJECT
+# DOMAIN-SUFFIX, dmapp.youku.com, REJECT
+# DOMAIN-SUFFIX, hudong.pl.youku.com, REJECT
+# DOMAIN-SUFFIX, huodong.pl.youku.com, REJECT
+# DOMAIN-SUFFIX, huodong.vip.youku.com, REJECT
+# DOMAIN-SUFFIX, hz.youku.com, REJECT
+# DOMAIN-SUFFIX, lstat.youku.com, REJECT
+# DOMAIN-SUFFIX, m.yes.youku.com, REJECT
+# DOMAIN-SUFFIX ,mobilemsg.youku.com, REJECT
+# DOMAIN-SUFFIX, msg.youku.com, REJECT
+# DOMAIN-SUFFIX, myes.youku.com, REJECT
+DOMAIN-SUFFIX, p.l.youku.com, REJECT
+DOMAIN-SUFFIX, r.l.youku.com, REJECT
+DOMAIN-SUFFIX, v.l.youku.com, REJECT
+DOMAIN-SUFFIX, l.ykimg.com, REJECT
+DOMAIN-SUFFIX, p-log.ykimg.com, REJECT
+DOMAIN-SUFFIX, s.p.youku.com, REJECT
+DOMAIN-SUFFIX, tdrec.youku.com, REJECT
+DOMAIN-SUFFIX, test.ott.youku.com, REJECT
+# DOMAIN-SUFFIX, stat.youku.com, REJECT
+# DOMAIN-SUFFIX, urchin.lstat.youku.com, REJECT
+# DOMAIN-SUFFIX, val.api.youku.com, REJECT
+# DOMAIN-SUFFIX, wan.youku.com, REJECT
+# DOMAIN-SUFFIX, ykatr.youku.com, REJECT
+# DOMAIN-SUFFIX, ykrec.youku.com, REJECT
+
 DOMAIN, ads.95516.com, REJECT
 DOMAIN, cm-10-138.getui.com, REJECT
 DOMAIN, sdk.open.talk.getui.net, REJECT
@@ -2275,6 +2344,13 @@ request if ${url} ~= /^https?:\/\/shopapi\.io\.mi\.com\/mtop\/mf\/resource\/home
 request if ${url} ~= /^https?:\/\/api-mifit.+?\.huami\.com\/discovery\/mi\/discovery\/.+?_ad\?/i then reject(200)
 
 # >>>>>>>>>>>>>>> ✅ Z ✅ <<<<<<<<<<<<<<
+# >>>>>>>>>>>>>>> ✅ Y ✅ <<<<<<<<<<<<<<
+
+# > 优酷
+# hostname = acs.youku.com, push.m.youku.com, un-acs.youku.com
+# 播放页弹窗动图
+request if ${url} ~= /^https?:\/\/acs\.youku\.com\/gw\/mtop\.youku\.(pisp\.scripts\.get|xspace\.play\.position\.preload\.query|xspace\.poplayer\.position\.query)/i then reject_dict(200)
+
 
 # > 掌上生活
 # 开屏广告
@@ -2614,6 +2690,23 @@ response if ${url} ~= /^https:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/(v5
 response if ${url} ~= /^https:\/\/edith\.(xiaohongshu|rnote)\.com\/api\/sns\/v1\/interaction\/comment\/video\/download\?/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/d27c811fbabc7b16d5bce4937e7b6672d48f89f1/Modules/JavaScript/fmz200/blockAdsV2/fmz200_xiaohongshu.js") with enable=${xhs_enable}, tag="小红书评论区去水印下载", timeout=60, requires_body=true
 
 # >>>>>>>>>>>>>>> ✅ Z ✅ <<<<<<<<<<<<<<
+# >>>>>>>>>>>>>>> ✅ Y ✅ <<<<<<<<<<<<<<
+
+# > 优酷
+# hostname = acs.youku.com, push.m.youku.com, un-acs.youku.com
+# 播放详情页,首页信息流,顶部tab,我的页面,评论区
+response if ${url} ~= /^https?:\/\/acs\.youku\.com\/gw\/mtop\.youku\.columbus\.(gateway\.new\.execute|home\.feed|home\.query|uc\.query|ycp\.query)/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js") with enable=${yzku_enable}, tag="优酷", timeout=60, requires_body=true
+# 底部tab
+response if ${url} ~= /^https?:\/\/acs\.youku\.com\/gw\/mtop\.youku\.haidai\.lantern\.appconfig\.get/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js") with enable=${yzku_enable}, tag="优酷底部tab", timeout=60, requires_body=true
+# 青少年模式弹窗
+response if ${url} ~= /^https?:\/\/acs\.youku\.com\/gw\/mtop\.youku\.huluwa\.dispatcher\.youthmode\.config2/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js") with enable=${yzku_enable}, tag="优酷青少年模式弹窗", timeout=60, requires_body=true
+# 搜索列表
+response if ${url} ~= /^https?:\/\/acs\.youku\.com\/gw\/mtop\.youku\.soku\.yksearch/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js") with enable=${yzku_enable}, tag="优酷搜索列表", timeout=60, requires_body=true
+# 热剧弹窗
+response if ${url} ~= /^https?:\/\/push\.m\.youku\.com\/collect-api\/get_push_interval_config_wx\?/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js") with enable=${yzku_enable}, tag="优酷热剧弹窗", timeout=60, requires_body=true
+# 开屏广告
+response if ${url} ~= /^https?:\/\/un-acs\.youku\.com\/gw\/mtop\.youku\.play\.ups\.appinfo\.get/i then script("https://raw.githubusercontent.com/xw-yin/loon-cf-opt/af05bd159217d07f50a6bb69ea0d10d1e7dde253/adblock/v2/VideoPages.fixed.js") with enable=${yzku_enable}, tag="优酷开屏广告", timeout=60, requires_body=true
+
 
 # > 招商证券
 # hostname = marketing.cmschina.com
@@ -2716,4 +2809,4 @@ request if ${url} ~= /^https?:\/\/[\w-]+\.googlevideo\.com\/initplayback.+&ack.*
 request if ${url} ~= /^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event/i then script("https://raw.githubusercontent.com/ifflagged/Romeo/e8135d0b9d88a68ad032078cba57a490149468a9/Modules/JavaScript/Kelee/YouTube_remove_ads/kelee_YouTube_remove_ads_request.js", {${blockUpload}, ${blockShorts}, ${blockImmersive}, ${captionLang}, ${debug}}) with tag="YouTube请求日志事件", requires_body=true, binary_body_mode=true
 
 [MITM]
-hostname = gab.122.gov.cn, ad.12306.cn, aes.acfun.cn, api-new.app.acfun.cn, acs.m.taobao.com, guide-acs.m.taobao.com, poplayer.template.alibaba.com, api.alipan.com, member.alipan.com, -i.vip.iqiyi.com, *.iqiyi.com, www.baidu.com, fcvbjbcebos.baidu.com, cover.baidu.com, baichuan.baidu.com, api*.tuisong.baidu.com, afd.baidu.com, mobads.baidu.com, issuecdn.baidupcs.com, update.pan.baidu.com, sa*.tuisong.baidu.com, m.baidu.com, sofire.baidu.com, pan.baidu.com, ndstatic.cdn.bcebos.com, staticsns.cdn.bcebos.com, fc-video.cdn.bcebos.com, rp.hpplay.cn, tiebac.baidu.com, apps.api.ke.com, grpc.biliapi.net, app.bilibili.com, api.bilibili.com, api.live.bilibili.com, line3-h5-mobile-api.biligame.com, 103.37.155.60, *.dianping.com, img.meituan.net, p.meituan.com, rms.meituan.com, www.dpfile.com, awp-assets.meituan.net, s3plus.meituan.net, p*.meituan.net, ddplus.meituan.net, api.douban.com, daoyu.sdo.com, rtbapi.douyucdn.cn, staticlive.douyucdn.cn, capi.douyucdn.cn, douyucdn.cn, *.pstatp.com, apis.folidaymall.com, m*.amap.com, optimus-ads.amap.com, amap-aos-info-nogw.amap.com, pagead2.googlesyndication.com, acs-m.freshippo.com, games.mobileapi.hupu.com, du.hupucdn.com, i*.hoopchina.com.cn, goblin.hupu.com, cdn.wup.huya.com, business.msstatic.com, cdnfile1.msstatic.com, live-ads.huya.com, api.m.jd.com, dns.jd.com, mobile-pic.cache.iciba.com, api.coolapk.com, www.coolapk.com, app.aa-ab.com, open.taou.com, h3.open.taou.com, flowplus.meituan.net, cdb.meituan.com, home.mi.com, api.pinduoduo.com, api.yangkeduo.com, mobile.yangkeduo.com, image.pushplus.plus, www.pushplus.plus, access.mypikpak.com, us.l.qq.com, y.gtimg.cn, music.y.qq.com, m.qianbao.qq.com, homepage-api.smzdm.com, haojia-api.smzdm.com, app-api.smzdm.com, user-api.smzdm.com, article-api.smzdm.com, qianbao.smzdm.com, s-api.smzdm.com, haojia.m.smzdm.com, dsp.toutiao.com, api.taptapdada.com, vv.video.qq.com, images.client.vip.xunlei.com, api-shoulei-ssl.xunlei.com, ipv4.music.163.com, interface.music.163.com, interface3.music.163.com, interface9.music.163.com, ios.wps.cn, mp.weixin.qq.com, weixin110.qq.com, security.wechat.com, upload-bbs.mihoyo.com, acs.m.goofish.com, g-acs.m.goofish.com, edith.xiaohongshu.com, www.xiaohongshu.com, ci.xiaohongshu.com, rec.xiaohongshu.com, so.xiaohongshu.com, edith.rnote.com, www.rnote.com, ci.rnote.com, so.rnote.com, rec.rnote.com, api-mifit*.huami.com, shopapi.io.mi.com, amemv.com, musical.com, snssdk.com, tiktokv.com, m.client.10010.com, m1.ad.10010.com, res.mall.10010.cn, api.zhihu.com, www.zhihu.com, appcloud2.zhihu.com, m-cloud.zhihu.com, zhuanlan.zhihu.com, link.zhihu.com, napi.ithome.com, page-info.zhihu.com, zhida.zhihu.com, h5.smzdm.com, haojia-cdn.smzdm.com, post.m.smzdm.com, baike-api.smzdm.com, zhiyou.m.smzdm.com, *.zdmimg.com, gg.caixin.com, config.ab.qq.com, i.video.qq.com, iacc.qq.com, spclient.wg.spotify.com, *-spclient.spotify.com, youtubei.googleapis.com, *.googlevideo.com, dat.ruanmei.com, www.binance.info, www.yingwangtech.net, www.binance.com, midc.cdn-static.abchina.com.cn, enjoy.cdn-static.abchina.com, mbasecc.bas.cmbchina.com, mbasecc.bcs.cmbchina.com, intellicc.bas.cmbchina.com, intellicc.bcs.cmbchina.com, webappcfg.paas.cmbchina.com, mbmodule-openapi.paas.cmbchina.com, gql.reddit.com, gql-fed.reddit.com, marketing.cmschina.com
+hostname = gab.122.gov.cn, ad.12306.cn, aes.acfun.cn, api-new.app.acfun.cn, acs.m.taobao.com, guide-acs.m.taobao.com, poplayer.template.alibaba.com, api.alipan.com, member.alipan.com, -i.vip.iqiyi.com, *.iqiyi.com, www.baidu.com, fcvbjbcebos.baidu.com, cover.baidu.com, baichuan.baidu.com, api*.tuisong.baidu.com, afd.baidu.com, mobads.baidu.com, issuecdn.baidupcs.com, update.pan.baidu.com, sa*.tuisong.baidu.com, m.baidu.com, sofire.baidu.com, pan.baidu.com, ndstatic.cdn.bcebos.com, staticsns.cdn.bcebos.com, fc-video.cdn.bcebos.com, rp.hpplay.cn, tiebac.baidu.com, apps.api.ke.com, grpc.biliapi.net, app.bilibili.com, api.bilibili.com, api.live.bilibili.com, line3-h5-mobile-api.biligame.com, 103.37.155.60, *.dianping.com, img.meituan.net, p.meituan.com, rms.meituan.com, www.dpfile.com, awp-assets.meituan.net, s3plus.meituan.net, p*.meituan.net, ddplus.meituan.net, api.douban.com, daoyu.sdo.com, rtbapi.douyucdn.cn, staticlive.douyucdn.cn, capi.douyucdn.cn, douyucdn.cn, *.pstatp.com, apis.folidaymall.com, m*.amap.com, optimus-ads.amap.com, amap-aos-info-nogw.amap.com, pagead2.googlesyndication.com, acs-m.freshippo.com, games.mobileapi.hupu.com, du.hupucdn.com, i*.hoopchina.com.cn, goblin.hupu.com, cdn.wup.huya.com, business.msstatic.com, cdnfile1.msstatic.com, live-ads.huya.com, api.m.jd.com, dns.jd.com, mobile-pic.cache.iciba.com, api.coolapk.com, www.coolapk.com, app.aa-ab.com, open.taou.com, h3.open.taou.com, flowplus.meituan.net, cdb.meituan.com, home.mi.com, api.pinduoduo.com, api.yangkeduo.com, mobile.yangkeduo.com, image.pushplus.plus, www.pushplus.plus, access.mypikpak.com, us.l.qq.com, y.gtimg.cn, music.y.qq.com, m.qianbao.qq.com, homepage-api.smzdm.com, haojia-api.smzdm.com, app-api.smzdm.com, user-api.smzdm.com, article-api.smzdm.com, qianbao.smzdm.com, s-api.smzdm.com, haojia.m.smzdm.com, dsp.toutiao.com, api.taptapdada.com, vv.video.qq.com, images.client.vip.xunlei.com, api-shoulei-ssl.xunlei.com, ipv4.music.163.com, interface.music.163.com, interface3.music.163.com, interface9.music.163.com, ios.wps.cn, mp.weixin.qq.com, weixin110.qq.com, security.wechat.com, upload-bbs.mihoyo.com, acs.m.goofish.com, g-acs.m.goofish.com, edith.xiaohongshu.com, www.xiaohongshu.com, ci.xiaohongshu.com, rec.xiaohongshu.com, so.xiaohongshu.com, edith.rnote.com, www.rnote.com, ci.rnote.com, so.rnote.com, rec.rnote.com, api-mifit*.huami.com, shopapi.io.mi.com, amemv.com, musical.com, snssdk.com, tiktokv.com, m.client.10010.com, m1.ad.10010.com, res.mall.10010.cn, api.zhihu.com, www.zhihu.com, appcloud2.zhihu.com, m-cloud.zhihu.com, zhuanlan.zhihu.com, link.zhihu.com, napi.ithome.com, page-info.zhihu.com, zhida.zhihu.com, h5.smzdm.com, haojia-cdn.smzdm.com, post.m.smzdm.com, baike-api.smzdm.com, zhiyou.m.smzdm.com, *.zdmimg.com, gg.caixin.com, config.ab.qq.com, i.video.qq.com, iacc.qq.com, spclient.wg.spotify.com, *-spclient.spotify.com, youtubei.googleapis.com, *.googlevideo.com, dat.ruanmei.com, www.binance.info, www.yingwangtech.net, www.binance.com, midc.cdn-static.abchina.com.cn, enjoy.cdn-static.abchina.com, mbasecc.bas.cmbchina.com, mbasecc.bcs.cmbchina.com, intellicc.bas.cmbchina.com, intellicc.bcs.cmbchina.com, webappcfg.paas.cmbchina.com, mbmodule-openapi.paas.cmbchina.com, gql.reddit.com, gql-fed.reddit.com, marketing.cmschina.com, acs.youku.com, push.m.youku.com, un-acs.youku.com
