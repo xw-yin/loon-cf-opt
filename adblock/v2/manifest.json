@@ -5,8 +5,8 @@
   "plugin": {
     "name": "blockAdsV2.fixed.v2.remote.plugin",
     "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
-    "bytes": 304425,
-    "sha256": "08f8b713f9e671bc7c1f03aeeac384200da5d5306cd90dbdabec3e0a7f66b29c"
+    "bytes": 304779,
+    "sha256": "e0f2f7c7c13828628e21929e3a2da56857c764f19642fcc647fc02293671383d"
   },
   "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
   "scripts": [

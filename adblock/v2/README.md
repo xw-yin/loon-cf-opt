@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.12.1（远程脚本）
+# Loon 广告拦截修复版 v2.12.2（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.12.2（2026-11-21）：纯展示改动，不动任何规则/绑定/默认值。62 个开关里 32 个的 tag 原本看不出属于哪个应用（16 个 YouTube_CN 开关、12 个网易云音乐开关、2 个 Spotify 开关、2 个 IT之家开关），现全部加上应用名前缀（YouTube-后台播放、网易云音乐-[隐藏首页]问候语、Spotify-移除底栏创建按钮、IT之家-移除置顶文章等）；其余 30 个原本就带应用名，未动。绑定引用的是参数名不是 tag，改 tag 不影响任何功能、也不重置已保存的开关状态。校验全过（v2.12.1 内容零丢失、62 开关全有定义、46 脚本地址全通）。
 
 v2.12.1（2026-11-21）：腾讯视频 sooyaaabo 脚本 pin 3455047889→ce5da42（新增 JCE 开屏处理 fixSplash，会员专区 tab 不再误删，白名单 0;4→0;2;4；审计 0 外发；新功能走已有 MITM 覆盖的 iacc.qq.com/config.ab.qq.com 绑定，无需补 MITM）；YouTube 整段换 sooyaaabo YouTube_CN（devchristian）版 pin ff43e5ae（脚本与上游发布版 md5 一致；无第三方外发、无 Worker 重定向；后台播放改为本地改写 playableInBackground，字幕翻译改为 timedtext 请求改写、不再合成字幕轨；16 个新开关取代旧 5 个，字幕翻译与后台播放默认关；新增 initplayback 空白视频回退规则与 5 个 MITM 主机 youtubei-att.googleapis.com/youtube.com/www.youtube.com/m.youtube.com/music.youtube.com）。酷安/百度那两项核查后确认早已在合集里（v2.9.0/v2.10.2），本次无新内容；gdtimg.com 整域仍不加。待真机验证：腾讯视频开屏与会员专区 tab、YouTube 播放/后台播放/字幕翻译/搜索页广告、国内软件网络正常。
 

@@ -1,4 +1,4 @@
-#!name=广告拦截&净化合集（远程修复 v2.12.1）
+#!name=广告拦截&净化合集（远程修复 v2.12.2）
 #!desc=(支持约90款APP/小程序)针对部分APP和小程序广告进行拦截，某些APP要清除缓存或者重新安装拦截广告才会生效！规则明细可以查看本插件的注释
 #!author=奶思[https://github.com/fmz200]
 #!icon=https://raw.githubusercontent.com/fmz200/wool_scripts/main/icons/apps/AdblockPlus.png
@@ -61,9 +61,9 @@ glgclmmg_enable = switch,true,false,tag=快手联盟,优量汇,穿山甲「广�
 mdmd_enable = switch,true,false,tag=脉脉-脚本开关
 reddit_enable = switch,true,false,tag=Reddit-脚本开关
 tcbc_enable = switch,true,false,tag=淘宝-脚本开关
-DT=switch, false, true, tag=[隐藏底部]笔记标签, desc=
-FX=switch, false, true, tag=[隐藏底部]发现标签, desc=
-MY=switch, false, true, tag=[隐藏底栏]漫游标签, desc=
+DT=switch, false, true, tag=网易云音乐-[隐藏底部]笔记标签, desc=
+FX=switch, false, true, tag=网易云音乐-[隐藏底部]发现标签, desc=
+MY=switch, false, true, tag=网易云音乐-[隐藏底栏]漫游标签, desc=
 whyiyyybyt_enable = switch,true,false,tag=网易云音乐-脚本开关
 lmjpxmvi_enable = switch,true,false,tag=解除微信链接限制-脚本开关
 xhs_enable = switch,true,false,tag=小红书-脚本开关
@@ -73,43 +73,43 @@ optimizeRequest = switch,true,tag=bilibili-优化请求
 purifyComment = switch,true,tag=bilibili-过滤评论推广
 sponsorBlock = switch,false,tag=bilibili-空降助手,desc=跳过视频中插入的广告；片段数据来自第三方 bsbsb.top，默认关
 displayUpList = select,"show","hide","auto",tag=bilibili-动态页UP列表,desc=auto：仅当列表中存在直播状态时显示；show：始终显示；hide：始终隐藏
-PRGG=switch, false, true, tag=[隐藏首页]问候语, desc=
-PRRK=switch, false, true, tag=[隐藏首页]排行榜, desc=
-PRDRD=switch, false, true, tag=[隐藏首页]每日推荐, desc=
-PRSCVPT=switch, false, true, tag=[隐藏首页]推荐歌单, desc=
-PRST=switch, false, true, tag=[隐藏首页]最近常听, desc=
-PRRR=switch, false, true, tag=[隐藏首页]雷达歌单, desc=
-HMPR=switch, false, true, tag=[隐藏首页]音乐合伙人, desc=
-PRMST=switch, false, true, tag=[隐藏首页]推荐专属歌单, desc=
-PRCN=switch, false, true, tag=[隐藏首页]你的专属歌单, desc=
+PRGG=switch, false, true, tag=网易云音乐-[隐藏首页]问候语, desc=
+PRRK=switch, false, true, tag=网易云音乐-[隐藏首页]排行榜, desc=
+PRDRD=switch, false, true, tag=网易云音乐-[隐藏首页]每日推荐, desc=
+PRSCVPT=switch, false, true, tag=网易云音乐-[隐藏首页]推荐歌单, desc=
+PRST=switch, false, true, tag=网易云音乐-[隐藏首页]最近常听, desc=
+PRRR=switch, false, true, tag=网易云音乐-[隐藏首页]雷达歌单, desc=
+HMPR=switch, false, true, tag=网易云音乐-[隐藏首页]音乐合伙人, desc=
+PRMST=switch, false, true, tag=网易云音乐-[隐藏首页]推荐专属歌单, desc=
+PRCN=switch, false, true, tag=网易云音乐-[隐藏首页]你的专属歌单, desc=
 
 
 # Spotify（v2.8.0 整合自 fking 版 Spotify_remove_ads，参数与原插件一一对应）
-tab = switch,false,true,tag=移除底栏创建按钮,desc=此开关控制是否移除底栏创建按钮
-useractivity = switch,true,false,tag=启用Apple设备接力,desc=此开关控制是否使用Apple设备接力
+tab = switch,false,true,tag=Spotify-移除底栏创建按钮,desc=此开关控制是否移除底栏创建按钮
+useractivity = switch,true,false,tag=Spotify-启用Apple设备接力,desc=此开关控制是否使用Apple设备接力
 # YouTube（v2.12.1 改用 sooyaaabo YouTube_CN（devchristian）版，脚本 pin ff43e5ae；字幕翻译与后台播放默认关，需在插件设置里开）
-background_playback = switch, false, true, tag = 后台播放, desc = 切换应用或锁定屏幕后, 普通视频仍可继续播放音频。直播和受限内容仍由YouTube自行决定是否允许后台播放。
-playback_region = select, "original", "CN", "HK", "TW", "US", "JP", "KR", "SG", "GB", "DE", "RU", tag = 播放请求地区, desc = original表示保持当前地区。此选项仅修改播放请求中的客户端gl参数, 不会改变出口IP, 也不影响广告拦截。
-translation_enabled = switch, false, true, tag = 字幕翻译, desc = 将现有字幕翻译为所选目标语言。关闭时保留原始字幕请求。
-translation_target = select, "zh-CN", "en-US", tag = 字幕目标语言, desc = 仅转换现有字幕轨道（简体中文zh-CN或美式英语en-US）。没有字幕的视频无法翻译。不会修改音轨、标题和简介。
-hide_home_shorts = switch, false, true, tag = 隐藏首页 Shorts, desc = 移除首页信息流中的Shorts栏目。其他页面不受影响, 底部Shorts标签页由独立开关控制。
-hide_shorts_everywhere = switch, false, true, tag = 隐藏所有页面的Shorts栏目, desc = 移除应用所有信息流中的Shorts栏目, 包括搜索结果、订阅页面和频道页面中使用与首页相同栏目布局的内容。包含首页Shorts栏目, 因此无需同时开启首页隐藏开关。单条Shorts搜索结果和Shorts标签页仍会保留。
-hide_shorts_tab = switch, false, true, tag = 隐藏Shorts标签页, desc = 移除应用底部栏中的Shorts按钮。仍可通过信息流和频道访问Shorts。应用会缓存底部栏约一小时, 重启应用后才能看到更改。
-hide_create_button = switch, false, true, tag = 隐藏创建按钮, desc = 移除应用底部栏中的创建（+）按钮。仍可通过其他入口上传内容。应用会缓存底部栏约一小时, 重启应用后才能看到更改。
-blocked_channels = input, "", tag = 屏蔽频道, desc = 填写频道ID、@用户名或完整频道名称, 多个条目之间用空格分隔。建议优先使用频道ID；名称包含空格时请使用用户名或ID。留空则禁用。仅隐藏能够识别出频道所有者的视频。
-blocked_channels_url = input, "", tag = 远程频道屏蔽列表地址, desc = 填写公开的HTTPS纯文本直链（例如GitHub Raw）。启用定时更新后, 本地缓存每小时刷新一次。如需立即刷新, 请在开启定时更新的情况下, 从插件脚本列表中手动运行对应脚本。远程列表会与手动列表合并。留空则禁用。
-blocked_channels_update = switch, false, true, tag = 定时更新频道屏蔽列表, desc = 每小时刷新一次远程频道屏蔽列表。仅在使用远程列表地址时需要开启。关闭后, 定时任务将被禁用, 也无法手动运行, 缓存列表会保持现有内容。
-log_enabled = switch, false, true, tag = 日志工具, desc = 首次匹配到请求时自动启动, 并通知日志入口。关闭后, 下次API请求会清除日志并停止采样；如需保留日志, 请先下载。完整采样可能增加延迟。
-quality_research = switch, false, true, tag = 画质研究采样, desc = 仅在日志工具开启时生效。记录可识别的画质和格式参数, 并读取较小的媒体POST请求以供比较。不会自动切换画质。
-media_capture_mode = select, "headers", "full", tag = 媒体采样模式, desc = 仅在日志工具开启时生效, 日志工具关闭后会自动禁用。headers仅记录响应头；full会读取完整响应, 用于开发调试, 但可能增加延迟。
-log_level = select, "info", "debug", "warn", "error", tag = 日志级别, desc = info保留完整脱敏追踪记录；error仅保留错误；debug保留调试级别日志；warn保留警告和错误。
-capture_budget = select, "32", "16", "64", tag = 日志容量（MB）, desc = 达到容量上限后停止记录, 并保留已有采样数据。导出后请清理日志。
+background_playback = switch, false, true, tag = YouTube-后台播放, desc = 切换应用或锁定屏幕后, 普通视频仍可继续播放音频。直播和受限内容仍由YouTube自行决定是否允许后台播放。
+playback_region = select, "original", "CN", "HK", "TW", "US", "JP", "KR", "SG", "GB", "DE", "RU", tag = YouTube-播放请求地区, desc = original表示保持当前地区。此选项仅修改播放请求中的客户端gl参数, 不会改变出口IP, 也不影响广告拦截。
+translation_enabled = switch, false, true, tag = YouTube-字幕翻译, desc = 将现有字幕翻译为所选目标语言。关闭时保留原始字幕请求。
+translation_target = select, "zh-CN", "en-US", tag = YouTube-字幕目标语言, desc = 仅转换现有字幕轨道（简体中文zh-CN或美式英语en-US）。没有字幕的视频无法翻译。不会修改音轨、标题和简介。
+hide_home_shorts = switch, false, true, tag = YouTube-隐藏首页 Shorts, desc = 移除首页信息流中的Shorts栏目。其他页面不受影响, 底部Shorts标签页由独立开关控制。
+hide_shorts_everywhere = switch, false, true, tag = YouTube-隐藏所有页面的Shorts栏目, desc = 移除应用所有信息流中的Shorts栏目, 包括搜索结果、订阅页面和频道页面中使用与首页相同栏目布局的内容。包含首页Shorts栏目, 因此无需同时开启首页隐藏开关。单条Shorts搜索结果和Shorts标签页仍会保留。
+hide_shorts_tab = switch, false, true, tag = YouTube-隐藏Shorts标签页, desc = 移除应用底部栏中的Shorts按钮。仍可通过信息流和频道访问Shorts。应用会缓存底部栏约一小时, 重启应用后才能看到更改。
+hide_create_button = switch, false, true, tag = YouTube-隐藏创建按钮, desc = 移除应用底部栏中的创建（+）按钮。仍可通过其他入口上传内容。应用会缓存底部栏约一小时, 重启应用后才能看到更改。
+blocked_channels = input, "", tag = YouTube-屏蔽频道, desc = 填写频道ID、@用户名或完整频道名称, 多个条目之间用空格分隔。建议优先使用频道ID；名称包含空格时请使用用户名或ID。留空则禁用。仅隐藏能够识别出频道所有者的视频。
+blocked_channels_url = input, "", tag = YouTube-远程频道屏蔽列表地址, desc = 填写公开的HTTPS纯文本直链（例如GitHub Raw）。启用定时更新后, 本地缓存每小时刷新一次。如需立即刷新, 请在开启定时更新的情况下, 从插件脚本列表中手动运行对应脚本。远程列表会与手动列表合并。留空则禁用。
+blocked_channels_update = switch, false, true, tag = YouTube-定时更新频道屏蔽列表, desc = 每小时刷新一次远程频道屏蔽列表。仅在使用远程列表地址时需要开启。关闭后, 定时任务将被禁用, 也无法手动运行, 缓存列表会保持现有内容。
+log_enabled = switch, false, true, tag = YouTube-日志工具, desc = 首次匹配到请求时自动启动, 并通知日志入口。关闭后, 下次API请求会清除日志并停止采样；如需保留日志, 请先下载。完整采样可能增加延迟。
+quality_research = switch, false, true, tag = YouTube-画质研究采样, desc = 仅在日志工具开启时生效。记录可识别的画质和格式参数, 并读取较小的媒体POST请求以供比较。不会自动切换画质。
+media_capture_mode = select, "headers", "full", tag = YouTube-媒体采样模式, desc = 仅在日志工具开启时生效, 日志工具关闭后会自动禁用。headers仅记录响应头；full会读取完整响应, 用于开发调试, 但可能增加延迟。
+log_level = select, "info", "debug", "warn", "error", tag = YouTube-日志级别, desc = info保留完整脱敏追踪记录；error仅保留错误；debug保留调试级别日志；warn保留警告和错误。
+capture_budget = select, "32", "16", "64", tag = YouTube-日志容量（MB）, desc = 达到容量上限后停止记录, 并保留已有采样数据。导出后请清理日志。
 vihu_enable = switch,true,false,tag=知乎-脚本开关
 davsdmpk_enable = switch,true,false,tag=大众点评-脚本开关
 yzku_enable = switch,true,false,tag=优酷-脚本开关
 
-removePinnedArticles = switch, false, true, tag=移除置顶文章, desc=启用后将移除置顶文章
-removeAllBanners = switch, false, true, tag=移除全部横幅, desc=启用后将移除全部横幅
+removePinnedArticles = switch, false, true, tag=IT之家-移除置顶文章, desc=启用后将移除置顶文章
+removeAllBanners = switch, false, true, tag=IT之家-移除全部横幅, desc=启用后将移除全部横幅
 [Rule]
 
 # v2：保留爱奇艺mixer响应，交由已有脚本删除广告字段。
