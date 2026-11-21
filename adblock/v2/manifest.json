@@ -1,12 +1,12 @@
 {
   "repository": "xw-yin/loon-cf-opt",
   "directory": "adblock/v2",
-  "date": "2026-11-20",
+  "date": "2026-11-21",
   "plugin": {
     "name": "blockAdsV2.fixed.v2.remote.plugin",
     "url": "https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin",
-    "bytes": 197073,
-    "sha256": "5c57321812849a6082f23c02b5ab1bcb06fa30dd97e945ee4527b1ad325a954e"
+    "bytes": 295602,
+    "sha256": "bd641bc7769a56c2cc5e3a5e86f73b331280062aba2cde02750dbfce1ff2ab6a"
   },
   "script_commit": "af05bd159217d07f50a6bb69ea0d10d1e7dde253",
   "scripts": [

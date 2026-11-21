@@ -1,8 +1,10 @@
-# Loon 广告拦截修复版 v2.11.1（远程脚本）
+# Loon 广告拦截修复版 v2.12.0（远程脚本）
 
 [导入或更新插件](https://raw.githubusercontent.com/xw-yin/loon-cf-opt/main/adblock/v2/blockAdsV2.fixed.v2.remote.plugin) · [当前目录](https://github.com/xw-yin/loon-cf-opt/tree/main/adblock/v2)
 
 本目录基于本地修复 v2，更新了 B 站空降助手兼容方案。导入地址保持不变，酷安及视频页面的两份修复 JS 继续远程加载，无需导入本地脚本。
+
+v2.12.0（2026-11-21）：按用户指令把主配置 v3 里的 41 个可莉去广告插件合入合集（工具类 19 个留配置里：BoxJs/Sub-Store/Script-Hub/dev-loopback 等）。合入：[Rule] +325、[Rewrite] +230、[Script] +36、MITM 171→268 主机；2812→3536 行。Bilibili/YouTube 与合集逐字一致未动（YouTube 保持 e8135d0 pin）；网易云 12 个开关按可莉单插件默认值（默认全关=全部显示，合集原来 MY/DT/FX/PRGG/PRMST/PRCN 6 个默认开已改掉）；新增 IT之家 removePinnedArticles/removeAllBanners 两个开关。审计（24 个远程引用全拉到并静态扫描）：23 个干净（可读、无外发、无 Cookie/Token；RuCu6 引用只是行尾注释；B 站 bsbsb 空降与 YouTube Maasea Worker 是已知行为，前者开关默认关、后者仅缓存命中才走）；拼多多脚本换 chunk 的 kelee.one 文件因 Cloudflare 403 拉不到、未独立验证（该脚本用户现正经单插件在跑，行为不变）。排除：BlockAdvertisers 的 gdtimg.com/ugdtimg.com 整域、l.qq.com 整域、tpns.qq.com（推送）4 条——gdtimg 整域是 2026-11-11 断网的元凶、不再合入；另 4 条规则与合集现有动作冲突（3 条字节跳动 AND 规则合集是 DIRECT、爱奇艺 cupid.iqiyi.com 合集是 REJECT）按合集现有动作保留。校验：v2.11.1 内容零丢失、jq 全在 [Rewrite]（91 条、[Script] 0 条）、51 个引用开关全有定义、46 个脚本地址全通、85 条内联 jq 语法全过、URL 正则全过。待真机验证：更新后冷启各家看开屏与信息流，确认国内软件网络正常；网易云底栏三个标签默认改为显示（想隐藏在插件设置里开 MY/DT/FX）。
 
 v2.11.1（2026-11-20）：按用户指令把优酷加回合集。内容取 v2.10.4 原样：[Rule] 66 条域名级 REJECT、[Rewrite] 播放页弹窗动图一条 reject_dict、[Script] 6 条绑定共用已审计的 VideoPages.fixed.js（pin af05bd15，与爱奇艺等共用同一支脚本，无新脚本）；开关 yzku_enable 恢复；MITM 补 acs.youku.com、push.m.youku.com、un-acs.youku.com（168→171）。另补上游 fmz200 2026-11-16 新增的一条单主机 REJECT（DOMAIN, adsmind.ugdtimg.com）。未跟上游：脚本换 fmz200 浮动 cnftp.js（本地 pin 不变）；上游 MITM 里的北京银行主机 cdn-xyk-app.bankofbeijing.com.cn 按规矩不收。待真机验证：优酷冷启开屏、首页信息流、播放详情页、搜索列表。
 
